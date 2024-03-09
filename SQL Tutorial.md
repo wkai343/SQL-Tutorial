@@ -1,4 +1,4 @@
-# SQL
+# SQL Tutorial
 
 ---
 
@@ -82,8 +82,8 @@ digitse[+-]digits
 ```sql
 type 'string'
 'string'::type
-CAST ( 'string' AS type )
-typename ( 'string' )
+CAST ('string' AS type)
+typename ('string')
 ```
 
 - type 'string'语法上的另一个限制是它无法对数组类型工作，指定一个数组常量的类型可使用::或CAST()
@@ -314,11 +314,152 @@ NULL::<boolean> IS NOT UNKNOWN → f (而不是 NULL)
 
 --
 
-### 基本数据类型
+## 基本数据类型
 
 - 用户可以使用CREATE TYPE命令为 PostgreSQL增加新的数据类型
 
---
+### 布尔类型
+
+布尔常量可以表示为SQL关键字TRUE, FALSE,和 NULL.
+
+> 注意语法分析程序会把TRUE 和 FALSE 自动理解为boolean类型，但是不包括NULL，因为它可以是任何类型的。因此在某些语境中你也许要将 NULL 转化为显示boolean类型，例如NULL::boolean.
+
+### 数字类型
+
+|类型|字节|
+|---|---|
+|smallint|2|
+|integer, int|4|
+|bigint|8|
+|numeric|可变|
+|real|4|
+|double precision|8|
+
+#### 任意精度
+
+```sql
+NUMERIC(precision, scale) -- 精度必须为正数，小数位数可以为零或者正数
+
+NUMERIC(precision) -- 选择小数位数为 0 
+
+NUMERIC -- 创建一个“无约束的数值”列，其中可以存储任意长度的数值，直到被实现所限制
+```
+
+支持：
+
+```sql
+Infinity(inf)
+-Infinity(-inf)
+NaN
+```
+
+> 在SQL命令中将这些值作为常量写入时，必须在其周围加引号
+> 无穷大只能存储在无约束的numeric中，因为它名义上超过了任何有限精度限制
+> 类型decimal和numeric是等效的。两种类型都是SQL标准的一部分
+
+#### 浮点数
+
+> PostgreSQL还支持 SQL 标准表示法float和float(p)用于声明非精确的数字类型。在这里，p指定以二进制位表示的最低可接受精度。在选取real类型的时候，PostgreSQL接受float(1)到float(24)，在选取double precision的时候，接受float(25)到float(53)。在允许范围之外的p值将导致一个错误。没有指定精度的float将被当作是double precision
+> 在对值进行圆整时，numeric类型会圆到远离零的整数，而（在大部分机器上）real和double precision类型会圆到最近的偶数上
+
+支持：
+
+```sql
+Infinity(inf)
+-Infinity(-inf)
+NaN
+```
+
+### 字符类型
+
+|类型|描述|
+|---|---|
+|character varying(n), varchar(n)|有限制的变长|
+|character(n), char(n)|定长，空格填充|
+|text|无限变长|
+
+> 没有长度声明词的character等效于character(1)
+> 如果不带长度说明词使用character varying，那么该类型接受任何长度的串。这是一个PostgreSQL的扩展
+> PostgreSQL提供text类型，它可以存储任何长度的串。尽管类型text不是SQL标准，但是许多其它 SQL 数据库系统也有它
+
+### 字节类型
+
+| 名字 | 存储尺寸 | 描述 |
+|---|---|---|
+| bytea | 1或4字节外加真正的二进制串 | 变长二进制串 |
+
+- 十六进制格式
+
+整个串以序列\x开头
+
+### 位串类型
+
+|类型|描述|
+|---|---|
+|bit varying(n), varbit(n)|有限制的变长|
+|bit(n)|定长, 精准匹配长度n|
+
+> 写一个没有长度的bit等效于bit(1)，没有长度的bit varying意味着没有长度限制。
+> 一个位串值对于每8位的组需要一个字节，外加总共5个或8个字节，这取决于串的长度
+
+### 枚举类型
+
+- 枚举类型可以使用CREATE TYPE命令创建
+
+```sql
+CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy');
+```
+
+> 枚举标签是大小写敏感的
+> 一个枚举值在磁盘上占据4个字节
+
+#### 排序
+
+> 一个枚举类型的值的排序是该类型被创建时所列出的值的顺序。枚举类型的所有标准的比较操作符以及相关聚集函数都被支持
+
+### 日期/时间类型
+
+|名字 | 存储尺寸 | 描述 | 最小值 | 最大值 | 解析度|
+|---|---|---|---|---|---|
+|timestamp | 8字节 | 时间戳(无时区) | 4713 BC | 294276 AD | 1微秒|
+|timestamp with time zone | 8字节 | 时间戳(有时区) | 4713 BC | 294276 AD | 1微秒|
+|date | 4字节 | 日期 | 4713 BC | 5874897 AD | 1日 |
+|time | 8字节 | 一天中的时间(无时区) | 00:00:00 | 24:00:00 | 1微秒|
+|time with time zone | 12字节 | 一天中的时间(有时区) |00:00:00+1459 | 24:00:00-1459 | 1微秒|
+|interval | 16字节 | 时间间隔 | -178000000年 | 178000000年 | 1微秒|
+
+> timestamptz是timestamp with time zone的一种简写，这是一种PostgreSQL的扩展
+
+#### 特殊值
+
+|输入串 | 合法类型 | 描述|
+|---|---|---|
+|epoch |date, timestamp | 1970-01-01 00:00:00+00（Unix系统时间0）|
+|infinity | date, timestamp | 比任何其他时间戳都晚|
+|-infinity | date, timestamp | 比任何其他时间戳都早|
+|now | date, time, timestamp | 当前事务的开始时间|
+|today | date, timestamp | 今日午夜 (00:00)|
+|tomorrow | date, timestamp | 明日午夜 (00:00)|
+|yesterday | date, timestamp | 昨日午夜 (00:00)|
+|allballs | time | 00:00:00.00 UTC|
+
+### 数组
+
+- PostgreSQL允许一个表中的列定义为变长多维数组。可以创建任何内建或用户定义的基类、枚举类型、组合类型或者域的数组
+
+#### 定义
+
+```sql
+<type>[];
+
+<type> ARRAY;
+```
+
+> 不会强制维度和尺寸
+
+#### 切片
+
+---
 
 ## 数据定义
 
@@ -756,11 +897,16 @@ ALTER TABLE <表名> ENABLE ROW LEVEL SECURITY
 #### 创建/删除视图
 
 ```sql
-CREATE VIEW <视图名> AS
-<查询结果>;
+CREATE VIEW <视图名> [(列名列表)] AS -- 列名列表可对查询结果的列部分或全部重命名
+<查询结果>
+[WITH CHECK OPTION]; -- 在对视图更新时会检查条件
 
-DROP VIEW <视图名>;
+DROP VIEW <视图名> [, <视图名>] [CASCADE | RESTRICT];
 ```
+
+#### 修改视图
+
+与修改表操作基本相同
 
 ### 索引
 
@@ -819,6 +965,8 @@ INSERT INTO <表名> VALUES (<值>) [, VALUES (<值>)]...;
 INSERT INTO <表名> (<列名>) VALUES (<值>) [, VALUES (<值>)]...;
 ```
 
+> values列表可替换为查询结果
+
 - 从使用给出的值从左开始填充列，有多少个给出的列值就填充多少个列，其他列的将使用默认值(可以显式地用默认值(DEFAULT)，用于单个的列或者用于整个行)(扩展语法)
 
 ```sql
@@ -853,9 +1001,21 @@ DELETE FROM <表名> [WHERE <条件>]; -- 不含where即为所有行
 [WITH with_queries] SELECT <select_list> FROM <table_expression> [sort_specification]
 ```
 
-### 聚焦函数
+[条件表达式](#条件表达式)
+
+CASE WHEN语句
+
+[聚焦函数](#聚焦函数)
 
 count（计数）、sum（和）、avg（均值）、max（最大值）和min（最小值）
+
+[子查询表达式](#子查询表达式)
+
+IN
+
+[模式匹配](#模式匹配)
+
+LIKE
 
 ### 别名
 
@@ -873,7 +1033,7 @@ SELECT <column> [AS] <alias> ...
 ```sql
 FROM <table_reference> [AS] <alias>
 
-FROM <table_reference> [AS] <alias> ( column1 [, column2 [, ...]] ) - 给列起别名, 如果指定的列别名比表里实际的列少，那么剩下的列就没有被重命名
+FROM <table_reference> [AS] <alias> (<column1> [, column2 [, ...]]) - 给列起别名, 如果指定的列别名比表里实际的列少，那么剩下的列就没有被重命名
 ```
 
 ### 选择列表
@@ -891,7 +1051,7 @@ SELECT [DISTINCT | ALL] <select_list> ... -- 默认是ALL
 - 可以用任意表达式来判断什么行可以被认为是可区分的(扩展语法)
 
 ```sql
-SELECT DISTINCT ON (expression [, expression ...]) select_list ...
+SELECT DISTINCT ON (expression [, expression ...]) <select_list> ...
 ```
 
 > DISTINCT ON子句不是 SQL 标准的一部分， 有时候有人认为它是一个糟糕的风格，因为它的结果是不可判定的。如果有选择的使用GROUP BY和在FROM中的子查询，那么我们可以避免使用这个构造，但是通常它是更方便的候选方法
@@ -913,7 +1073,7 @@ FROM <table_reference> [, table_reference [, ...]]
 - 在JOIN子句周围可以使用圆括号来控制连接顺序。如果不使用圆括号，JOIN子句会从左至右嵌套
 
 ```sql
-T1 <join_type> T2 [ join_condition ]
+T1 <join_type> T2 [join_condition]
 ```
 
 ##### 交叉连接(笛卡儿积)
@@ -929,9 +1089,9 @@ T1 CROSS JOIN T2 -- 等效于 T1 INNER JOIN T2 ON TRUE 或者 于FROM T1,T2
 - ，NATURAL是USING的缩写形式：它形成一个USING列表， 该列表由那些在两个表里都出现了的列名组成。和USING一样，这些列只在输出表里出现一次。如果不存在公共列，NATURAL JOIN的行为将和JOIN ... ON TRUE一样产生交叉集连接
 
 ```sql
-T1 { [INNER] | { LEFT | RIGHT | FULL } [OUTER] } JOIN T2 ON <boolean_expression>
-T1 { [INNER] | { LEFT | RIGHT | FULL } [OUTER] } JOIN T2 USING ( <join column list> )
-T1 NATURAL { [INNER] | { LEFT | RIGHT | FULL } [OUTER] } JOIN T2
+T1 {[INNER] | {LEFT | RIGHT | FULL} [OUTER]} JOIN T2 ON <boolean_expression>
+T1 {[INNER] | {LEFT | RIGHT | FULL} [OUTER]} JOIN T2 USING (<join column list>)
+T1 NATURAL {[INNER] | {LEFT | RIGHT | FULL} [OUTER]} JOIN T2
 ```
 
 ##### WHERE子句
@@ -977,8 +1137,8 @@ HAVING <boolean_expression>
 ```sql
 SELECT <select_list>
 FROM <table_expression>
-ORDER BY <sort_expression1> [ASC | DESC] [NULLS { FIRST | LAST }]
-[, sort_expression2 [ASC | DESC] [NULLS { FIRST | LAST }] ...]
+ORDER BY <sort_expression1> [ASC | DESC] [NULLS {FIRST | LAST}]
+[, sort_expression2 [ASC | DESC] [NULLS {FIRST | LAST}] ...]
 ```
 
 ### 组合查询(UNION, INTERSECT, EXCEPT)
@@ -1000,8 +1160,8 @@ ORDER BY <sort_expression1> [ASC | DESC] [NULLS { FIRST | LAST }]
 ```sql
 SELECT <select_list>
 FROM <table_expression>
-[ ORDER BY ... ]
-[ LIMIT { <number> | ALL } ] [ OFFSET <number> ]
+[ORDER BY ...]
+[LIMIT {<number> | ALL}] [OFFSET <number>]
 ```
 
 ### VALUE列表
@@ -1012,9 +1172,11 @@ FROM <table_expression>
 
 ---
 
-## 条件表达式
+## 函数与操作符
 
-### CASE
+### 条件表达式
+
+#### CASE
 
 ```sql
 CASE WHEN <condition> THEN <result>
@@ -1029,7 +1191,7 @@ WHEN <value> THEN <result>
 END
 ```
 
-### COALESCE
+#### COALESCE
 
 - COALESCE函数返回它的第一个非空参数的值
 
@@ -1037,7 +1199,7 @@ END
 COALESCE(value [, ...])
 ```
 
-### NULLIF
+#### NULLIF
 
 - 当value1和value2相等时，NULLIF返回一个空值
 
@@ -1045,7 +1207,7 @@ COALESCE(value [, ...])
 NULLIF(<value1>, <value2>)
 ```
 
-### GREATEST和LEAST
+#### GREATEST和LEAST
 
 - 列表中的 NULL 数值将被忽略。只有所有表达式的结果都是 NULL 的时候，结果才会是 NULL
 
@@ -1056,3 +1218,19 @@ LEAST(value [, ...])
 ```
 
 > 请注意GREATEST和LEAST都不是 SQL 标准，但却是很常见的扩展。某些其他数据库让它们在任何参数为 NULL 时返回 NULL，而不是在所有参数都为 NULL 时才返回 NULL。
+
+### 子查询表达式
+
+### 模式匹配
+
+### 聚焦函数
+
+### 窗口函数
+
+### 数学函数
+
+### 三角函数
+
+### 随机函数
+
+### 字符串操作符和函数
