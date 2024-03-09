@@ -18,10 +18,11 @@
 - 数据库基本操作
 
   - 创建数据库集簇与服务启动
-  - 连接数据库
+  - 创建数据库与连接数据库
   - pgsql内置createdb和dropdb, createdb可以有默认值
   - `psql -U <用户名> -d <数据库> -h <ip> -p <port>`; `psql <数据库>`, 若不提供数据库名, 默认值为用户账号名
-  - 其他
+
+### 常用命令
 
 ---
 
@@ -1011,11 +1012,11 @@ count（计数）、sum（和）、avg（均值）、max（最大值）和min（
 
 [子查询表达式](#子查询表达式)
 
-IN
+EXIST, IN/NOT IN, ANY/ALL
 
 [模式匹配](#模式匹配)
 
-LIKE
+LIKE和正则
 
 ### 别名
 
@@ -1155,7 +1156,7 @@ ORDER BY <sort_expression1> [ASC | DESC] [NULLS {FIRST | LAST}]
 
 ### 截断与偏移(LIMIT和OFFSET)
 
-- 。LIMIT ALL的效果和省略LIMIT子句一样; OFFSET 0的效果和省略OFFSET子句是一样的
+- LIMIT ALL的效果和省略LIMIT子句一样; OFFSET 0的效果和省略OFFSET子句是一样的
 
 ```sql
 SELECT <select_list>
@@ -1196,7 +1197,7 @@ END
 - COALESCE函数返回它的第一个非空参数的值
 
 ```sql
-COALESCE(value [, ...])
+COALESCE(<value>[, ...])
 ```
 
 #### NULLIF
@@ -1212,18 +1213,183 @@ NULLIF(<value1>, <value2>)
 - 列表中的 NULL 数值将被忽略。只有所有表达式的结果都是 NULL 的时候，结果才会是 NULL
 
 ```sql
-GREATEST(value [, ...])
+GREATEST(<value>[, ...])
 
-LEAST(value [, ...])
+LEAST(<value>[, ...])
 ```
 
-> 请注意GREATEST和LEAST都不是 SQL 标准，但却是很常见的扩展。某些其他数据库让它们在任何参数为 NULL 时返回 NULL，而不是在所有参数都为 NULL 时才返回 NULL。
+> 请注意GREATEST和LEAST都不是 SQL 标准，但却是很常见的扩展。某些其他数据库让它们在任何参数为 NULL 时返回 NULL，而不是在所有参数都为 NULL 时才返回 NULL
 
 ### 子查询表达式
 
+- 都返回布尔值结果
+
+#### EXISTS
+
+- 系统对子查询进行运算以判断它是否返回行。如果它至少返回一行，那么EXISTS的结果就为“真”；如果子查询没有返回行，那么EXISTS的结果是“假”
+
+```sql
+EXISTS (<subquery>)
+```
+
+#### IN / NOT IN
+
+```sql
+<expression> IN (<subquery>)
+<expression> NOT IN (<subquery>)
+```
+
+> 如果左手边表达式得到NULL，或者没有相等的右手边值，并且至少有一个右手边行得到NULL，那么IN结构的结果将是NULL
+
+#### ANY
+
+```sql
+<expression> <operator> ANY (<subquery>) -- SOME是ANY的同义词
+```
+
+> IN等价于= ANY
+> 如果没有任何成功并且至少有一个右手边行为该操作符结果生成NULL，那么ANY结构的结果将是NULL
+
+#### ALL
+
+```sql
+<expression> <operator> ALL (subquery)
+```
+
+> NOT IN等价于<> ALL
+> 如果比较为任何行都不返回假并且对至少一行返回NULL，则结果为NULL
+
+### 值比较
+
+#### IN
+
+```sql
+<expression> IN (<value>[, ...])
+```
+
+```sql
+<expression> = <value1>
+OR
+<expression> = <value2>
+OR
+...
+```
+
+> 如果左手边表达式得到NULL，或者没有相等的右手边值并且至少有一个右手边的表达式得到NULL，那么IN结构的结果将为NULL
+
+#### NOT IN
+
+```sql
+<expression> NOT IN (<value>[, ...])
+```
+
+```sql
+<expression> <> <value1>
+AND
+<expression> <> <value2>
+AND
+...
+```
+
+> 如果左手边表达式得到NULL，或者没有相等的右手边值并且至少有一个右手边的表达式得到NULL，那么NOT IN结构的结果将为NULL
+
+#### ANY(array)
+
+```sql
+<expression> <operator> ANY (<array expression>) -- SOME是ANY的同义词
+```
+
+>如果数组表达式得到一个空数组，ANY的结果将为NULL。如果左手边的表达式得到NULL，ANY通常是NULL（尽管一个非严格比较操作符可能得到一个不同的结果）。另外，如果右手边的数组包含任何NULL元素或者没有得到真值比较结果，ANY的结果将是NULL
+
+#### ALL(array)
+
+```sql
+<expression> <operator> ALL (<array expression>)
+```
+
+> 如果数组表达式得到一个空数组，ALL的结果将为NULL。如果左手边的表达式得到NULL，ALL通常是NULL（尽管一个非严格比较操作符可能得到一个不同的结果）。另外，如果右手边的数组包含任何NULL元素或者没有得到假值比较结果，ALL的结果将是NULL（再次，假设是一个严格的比较操作符）
+
 ### 模式匹配
 
+- PostgreSQL提供了三种独立的实现模式匹配的方法：SQL LIKE操作符、更近一些的SIMILAR TO操作符和POSIX风格的正则表达式
+
+#### LIKE
+
+- 在pattern里的下划线 （_）代表（匹配）任何单个字符；而一个百分号（%）匹配任何零或更多个字符的序列
+- 要匹配文本的下划线或者百分号，而不是匹配其它字符，在pattern里相应的字符必须前导逃逸字符。缺省的逃逸字符是反斜线，但是你可以用ESCAPE子句指定一个不同的逃逸字符。要匹配逃逸字符本身，写两个逃逸字符
+
+```sql
+<string> LIKE <pattern> [ESCAPE <escape-character>]
+<string> NOT LIKE <pattern> [ESCAPE <escape-character>]
+```
+
+> 如果pattern不包含百分号或者下划线，那么该模式只代表它本身的串；这时候LIKE的行为就如同等号操作符
+>
+> 根据SQL标准，省略ESCAPE意味着没有转义字符(而不是默认为反斜杠)，并且不允许使用零长度的ESCAPE值。 因此，PostgreSQL在这方面的行为有点不标准
+>
+> 关键字ILIKE可以用于替换LIKE， 它令该匹配根据活动区域成为大小写无关。这个不属于SQL标准而是一个PostgreSQL扩展。操作符 `~~` 等效于LIKE，而 `~~*` 对应ILIKE。还有 `!~~` 和 `!~~*` 操作符分别代表NOT LIKE和NOT ILIKE。所有这些操作符都是PostgreSQL特有的
+
+#### SIMILAR TO正则表达式
+
+#### POSIX正则表达式
+
+正则匹配操作符
+
+```sql
+~ 匹配
+
+~* 匹配，大小写不敏感
+
+!~
+
+!~*
+```
+
+##### substring函数
+
+- 如果没有匹配它返回NULL，否则就是匹配模式的文本中的第一部分
+
+```sql
+substring(<string> from <pattern>)
+```
+
+##### regexp_replace函数
+
+- 如果没有匹配pattern，那么返回不加修改的source串。如果有匹配，则返回的source串里面的匹配子串将被replacement串替换掉
+
+```sql
+regexp_replace(<source>, <pattern>, <replacement>[, <flags>])
+```
+
+> replacement串可以包含\n，其中\n是 1 到 9， 表明源串里匹配模式里第n个圆括号子表达式的子串应该被插入，并且它可以包含\&表示应该插入匹配整个模式的子串。如果你需要放一个文字形式的反斜线在替换文本里，那么写\\。flags参数是一个可选的文本串，它包含另个或更多单字母标志，这些标志可以改变函数的行为。标志i指定大小写无关的匹配，而标志g指定替换每一个匹配的子串而不仅仅是第一个
+
+##### regexp_match函数
+
+- 如果没有匹配，则结果为NULL。如果找到一个匹配并且pattern不包含带括号的子表达式，那么结果是一个单一元素的文本数组，其中包含匹配整个模式的子串。如果找到一个匹配并且pattern含有带括号的子表达式，那么结果是一个文本数组(“非捕获”圆括号不计入在内)
+
+```sql
+regexp_match(<string>, <pattern>, <replacement>[, <flags>])
+```
+
+##### regexp_matches函数
+
+- regexp_matches函数返回一个文本数组的集合
+- 如果没有匹配，这个函数不会返回行; 如果给定了g标志，返回多行的匹配结果
+- 在大部分情况下，regexp_matches()应该与g标志一起使用，因为如果只是想要第一个匹配，使用regexp_match()会更加简单高效
+
 ### 聚焦函数
+
+- 默认为ALL
+- 当遇到空值，只有count(*)不跳过
+
+```sql
+count(*) -- 统计元组个数
+count([DISTINCT | ALL] <列名>)
+sum([DISTINCT | ALL] <列名>)
+avg([DISTINCT | ALL] <列名>)
+max([DISTINCT | ALL] <列名>)
+min([DISTINCT | ALL] <列名>)
+```
 
 ### 窗口函数
 
@@ -1232,5 +1398,11 @@ LEAST(value [, ...])
 ### 三角函数
 
 ### 随机函数
+
+random () → double precision
+返回一个范围 0.0 <= x < 1.0 中的随机值
+
+setseed (double precision) → void
+为后续的random()调用设置种子；参数必须在-1.0和1.0之间，包括边界值
 
 ### 字符串操作符和函数
