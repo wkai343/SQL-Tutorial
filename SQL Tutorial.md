@@ -930,39 +930,22 @@ ALTER TABLE <分区表> DETACH PARTITION <分区> CONCURRENTLY;
 ALTER TABLE <派生表> NO INHERIT <基表>; -- 取消继承
 ```
 
-#### 表权限
-
-- 重新分配所有者
+#### 更改所有者
 
 ```sql
 ALTER TABLE <表名> OWNER TO <所有者>;
 ```
-
-- 分配权限
-
-```sql
-GRANT <权限> ON accounts TO <角色>;
-```
-
-- 撤销权限
-
-```sql
-REVOKE <权限> ON accounts FROM <角色>;
-```
-
-有效的权限：SELECT、INSERT、UPDATE、DELETE、TRUNCATE、REFERENCES、TRIGGER、CREATE、CONNECT、TEMPORARY、EXECUTE、USAGE
-所有权限：ALL
-所有角色：PUBLIC
-
+<!-- 
 #### 行安全性策略
 
 - 所有对该表选择行或者修改行的普通访问都必须被一条行安全性策略所允许（不过，表的拥有者通常不服从行安全性策略）
+- 启用和禁用行安全性以及向表增加策略是只有表拥有者具有的特权
 - 如果表上不存在策略，将使用一条默认的否定策略，即所有的行都不可见或者不能被修改
 - 应用在整个表上的操作不服从行安全性，例如TRUNCATE和 REFERENCES
 
 ```sql
 ALTER TABLE <表名> ENABLE ROW LEVEL SECURITY
-```
+``` -->
 
 ### 视图
 
@@ -1499,3 +1482,66 @@ current_date
 
 now()
 ```
+
+#### 权限
+
+- 分配权限
+
+```sql
+GRANT <权限>[, ...]
+ON <对象类型> <对象名>[, ...]
+TO <角色>[, ...]
+[WITH GRANT OPTION]; -- 转授
+```
+
+- 撤销权限
+
+```sql
+REVOKE <权限>[, ...]
+ON <对象类型> <对象名>[, ...]
+FROM <角色>[, ...]
+[CASCADE | RESTRICT];
+```
+
+有效的权限：SELECT、INSERT、UPDATE、DELETE、TRUNCATE、REFERENCES、TRIGGER、CREATE、CONNECT、TEMPORARY、EXECUTE、USAGE
+所有权限：ALL
+所有角色：PUBLIC
+
+##### 角色属性
+
+- login privilege
+
+  ```sql
+  CREATE ROLE <name> LOGIN;
+  CREATE USER <name>;
+  ```
+
+- superuser status
+
+  ```sql
+  CREATE ROLE <name> SUPERUSER;
+  ```
+
+- database creation
+
+  ```sql
+  CREATE ROLE <name> CREATEDB;
+  ```
+
+- role creation
+
+  ```sql
+  CREATE ROLE <name> CREATEROLE;
+  ```
+
+- initiating replication
+
+  ```sql
+  CREATE ROLE <name> REPLICATION LOGIN;
+  ```
+
+- password
+
+  ```sql
+  CREATE ROLE <name> PASSWORD '<密码>';
+  ```
