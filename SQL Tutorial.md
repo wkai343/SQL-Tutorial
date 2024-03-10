@@ -67,6 +67,12 @@ WantedBy=multi-user.target
 \l+ [db]
 ```
 
+连接数据库
+
+```postgresql
+\c <db>
+```
+
 查看表
 
 ```postgresql
@@ -784,7 +790,7 @@ ALTER TABLE <表名> DROP [COLUMN] <列名> [RESTRICT | CASCADE];
 ALTER TABLE <表名> ADD <表级约束>;
 ```
 
-要增加一个不能写成表约束的非空约束，可使用语法：
+要增加一个不能写成表约束的非空约束，可使用语法:
 
 ```sql
 ALTER TABLE <表名> ALTER COLUMN <列名> SET NOT NULL;
@@ -796,6 +802,12 @@ ALTER TABLE <表名> ALTER COLUMN <列名> SET NOT NULL;
 
 ```sql
 ALTER TABLE <表名> DROP CONSTRAINT <约束名> [RESTRICT | CASCADE];
+```
+
+移除非空约束:
+
+```sql
+ALTER TABLE <表名> ALTER COLUMN <列名> DROP NOT NULL;
 ```
 
 ##### 修改列的默认值
