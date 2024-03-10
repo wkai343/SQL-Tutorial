@@ -18,11 +18,82 @@
 - 数据库基本操作
 
   - 创建数据库集簇与服务启动
-  - 创建数据库与连接数据库
-  - pgsql内置createdb和dropdb, createdb可以有默认值
-  - `psql -U <用户名> -d <数据库> -h <ip> -p <port>`; `psql <数据库>`, 若不提供数据库名, 默认值为用户账号名
+
+    ```linux
+    adduser postgres
+    mkdir /usr/local/pgsql/data
+    chown postgres /usr/local/pgsql/data
+    su - postgres
+    initdb -D /usr/local/pgsql/data (pg_ctl -D /usr/local/pgsql/data initdb)
+    postgres -D /usr/local/pgsql/data >logfile 2>&1 & (pg_ctl -D /usr/local/pgsql/data -l logfile start)
+    ```
+
+  - 创建数据库、创建用户与连接数据库
+    - pgsql内置createdb和dropdb, createdb可以有默认值
+    - createuser name；dropuser name
+    - `psql -U <用户名> -d <数据库> -h <ip> -p <port>`; `psql <数据库>`, 若不提供数据库名, 默认值为用户账号名
+
+systemd
+
+```text
+[Unit]
+Description=PostgreSQL database server
+Documentation=man:postgres(1)
+[Service]
+Type=notify
+User=postgres
+ExecStart=/usr/local/pgsql/bin/postgres -D /usr/local/pgsql/data
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutSec=0
+[Install]
+WantedBy=multi-user.target
+```
 
 ### 常用命令
+
+查看用户
+
+```postgresql
+\du
+```
+
+查看数据库
+
+```postgresql
+\l [db]
+
+\l+ [db]
+```
+
+查看表
+
+```postgresql
+\d [table]
+
+\d+ [table]
+```
+
+查看sql命令
+
+```postgresql
+\h
+
+\h <cmd>
+```
+
+修改密码
+
+```postgresql
+\passwd [user]
+```
+
+退出
+
+```postgresql
+\q
+```
 
 ---
 
@@ -1393,6 +1464,18 @@ min([DISTINCT | ALL] <列名>)
 
 ### 窗口函数
 
+- 可以和聚焦函数一起用
+
+| 函数 | 描述 |
+|---|---|
+|row_number() -> bigint||
+|rank() -> bigint||
+|lag(\<value anycompatible\>[, offset integer[, default anycompatible]])|返回分区中在当前行之前offset行的value;如果没有这样的行，则返回default(必须与value相兼容的类型)  offset和default都是针对当前行求值的。如果省略，offset默认为1，default为NULL|
+|lead()||
+|first_value (\<value anyelement\>) → \<anyelement\>|返回在窗口框架的第一行求得的value|
+|last_value (\<value anyelement\>) → \<anyelement\>|返回在窗口框架的最后一行求得的value|
+|nth_value (\<value anyelement\>, \<n integer>\) → \<anyelement\>|返回在窗口框架的第n行求得的value(从1开始计数);如果没有这样的行，则返回NULL|
+
 ### 数学函数
 
 ### 三角函数
@@ -1406,3 +1489,13 @@ setseed (double precision) → void
 为后续的random()调用设置种子；参数必须在-1.0和1.0之间，包括边界值
 
 ### 字符串操作符和函数
+
+### 时间函数
+
+```sql
+current_time
+
+current_date
+
+now()
+```
