@@ -19,7 +19,7 @@
 
   - 创建数据库集簇与服务启动
 
-    ```linux
+    ```sh
     adduser postgres
     mkdir /usr/local/pgsql/data
     chown postgres /usr/local/pgsql/data
@@ -209,7 +209,7 @@ NOT <boolean> → <boolean>
 | FALSE | TRUE |
 | NULL | NULL |
 
-##### 比较操作符
+#### 比较操作符
 
 | 操作符 | 描述 |
 |---|---|
@@ -507,6 +507,8 @@ CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy');
 |interval | 16字节 | 时间间隔 | -178000000年 | 178000000年 | 1微秒|
 
 > timestamptz是timestamp with time zone的一种简写，这是一种PostgreSQL的扩展
+>
+> time、timestamp和interval接受一个可选的精度值 p，这个精度值声明在秒域中小数点之 后保留的位数。缺省情况下，在精度上没有明确的边界。p允许范围是从 0 到 6。 interval类型有一个附加选项，它可以通过写下面之一的短语来限制存储的fields的集合： YEAR MONTH DAY HOUR MINUTE SECOND YEAR TO MONTH DAY TO HOUR DAY TO MINUTE DAY TO SECOND HOUR TO MINUTE HOUR TO SECOND MINUTE TO SECOND
 
 #### 特殊值
 
@@ -1023,18 +1025,24 @@ CREATE UNIQUE INDEX <name> ON <table> (<column> [, ...]);
 - 按序插入
 
 ```sql
-INSERT INTO <表名> VALUES (<值>) [, VALUES (<值>)]...;
+INSERT INTO <表名> VALUES (<值>) [, (<值>)]...;
 ```
 
 - 指定插入(可省略部分列)
 
 ```sql
-INSERT INTO <表名> (<列名>) VALUES (<值>) [, VALUES (<值>)]...;
+INSERT INTO <表名> (<列名>) VALUES (<值>) [, (<值>)]...;
 ```
 
 > values列表可替换为查询结果
 
-- 从使用给出的值从左开始填充列，有多少个给出的列值就填充多少个列，其他列的将使用默认值(可以显式地用默认值(DEFAULT)，用于单个的列或者用于整个行)(扩展语法)
+- pgsql扩展，从使用给出的值从左开始填充列，有多少个给出的列值就填充多少个列，其他列的将使用默认值
+
+```sql
+INSERT INTO products VALUES (1, 'Cheese');
+```
+
+- 可以显式地用默认值(DEFAULT)，用于单个的列或者用于整个行
 
 ```sql
 INSERT INTO products (product_no, name, price) VALUES (1, 'Cheese', DEFAULT);
@@ -1055,8 +1063,13 @@ DELETE FROM <表名> [WHERE <条件>]; -- 不含where即为所有行
 
 ### 从修改的行中返回数据
 
-- INSERT、 UPDATE和DELETE命令都有一个支持这个的可选的 RETURNING子句
+- INSERT、UPDATE和DELETE命令都有一个支持这个的可选的 RETURNING子句
 - 所允许的RETURNING子句的内容与SELECT命令的输出列表相同。它可以包含命令的目标表的列名，或者包含使用这些列的值表达式
+
+```sql
+CREATE TABLE users (firstname text, lastname text, id serial primary key);
+INSERT INTO users (firstname, lastname) VALUES ('Joe', 'Cool') RETURNING id;
+```
 
 ---
 
@@ -1153,7 +1166,7 @@ T1 CROSS JOIN T2 -- 等效于 T1 INNER JOIN T2 ON TRUE 或者 于FROM T1,T2
 
 - ON子句接收一个和WHERE子句里用的一样的布尔值表达式
 - USING是个缩写符号，它允许你利用特殊的情况：连接的两端都具有相同的连接列名。JOIN USING的输出会废除冗余列, JOIN USING会先列出相同的连接列名，然后先跟上来自T1的剩余列，最后跟上来自T2的剩余列
-- ，NATURAL是USING的缩写形式：它形成一个USING列表， 该列表由那些在两个表里都出现了的列名组成。和USING一样，这些列只在输出表里出现一次。如果不存在公共列，NATURAL JOIN的行为将和JOIN ... ON TRUE一样产生交叉集连接
+- NATURAL是USING的缩写形式：它形成一个USING列表， 该列表由那些在两个表里都出现了的列名组成。和USING一样，这些列只在输出表里出现一次。如果不存在公共列，NATURAL JOIN的行为将和JOIN ... ON TRUE一样产生交叉集连接
 
 ```sql
 T1 {[INNER] | {LEFT | RIGHT | FULL} [OUTER]} JOIN T2 ON <boolean_expression>
@@ -1237,6 +1250,49 @@ FROM <table_expression>
 
 ### WITH查询（公共表表达式或CTE）
 
+在WITH子句中的每一个辅助语句可以是一个SELECT、INSERT、UPDATE或DELETE，并且WITH子句本身也可以被附加到一个主语句，主语句也可以是SELECT、INSERT、UPDATE或DELETE。
+
+```sql
+WITH <表别名> AS (<辅助语句>)
+[, <表别名> AS (<辅助语句>)]...
+<主语句>
+```
+
+#### WITH RECURSIVE
+
+```sql
+WITH RECURSIVE t(n) AS (
+VALUES (1)
+UNION ALL
+SELECT n+1 FROM t WHERE n < 100
+)
+SELECT sum(n) FROM t;
+```
+
+一个递归WITH查询的通常形式总是一个非递归项，然后是UNION（或者UNION ALL），再然后是一个递归项，其中只有递归项能够包含对于查询自身输出的引用。这样一个查询可以被这样执行
+
+> 严格来说，这个处理是迭代而不是递归，但是RECURSIVE是SQL标准委员会选择的术语。
+
+##### 深度优先和广度优先
+
+todo
+
+#### 数据修改
+
+INSERT、UPDATE或DELETE
+
+```sql
+WITH moved_rows AS (
+DELETE FROM products
+WHERE
+"date" >= '2010-10-01' AND
+"date" < '2010-11-01'
+RETURNING *
+)
+INSERT INTO products_log
+SELECT * FROM moved_rows;
+```
+
 ---
 
 ## 函数与操作符
@@ -1305,7 +1361,7 @@ EXISTS (<subquery>)
 <expression> NOT IN (<subquery>)
 ```
 
-> 如果左手边表达式得到NULL，或者没有相等的右手边值，并且至少有一个右手边行得到NULL，那么IN结构的结果将是NULL
+> 如果左边表达式得到NULL，或者没有相等的右边值，并且至少有一个右边行得到NULL，那么IN结构的结果将是NULL
 
 #### ANY
 
@@ -1314,7 +1370,8 @@ EXISTS (<subquery>)
 ```
 
 > IN等价于= ANY
-> 如果没有任何成功并且至少有一个右手边行为该操作符结果生成NULL，那么ANY结构的结果将是NULL
+> 它必须只返回一列
+> 如果没有任何成功并且至少有一个右边行为该操作符结果生成NULL，那么ANY结构的结果将是NULL
 
 #### ALL
 
@@ -1323,6 +1380,7 @@ EXISTS (<subquery>)
 ```
 
 > NOT IN等价于<> ALL
+> 它必须只返回一列
 > 如果比较为任何行都不返回假并且对至少一行返回NULL，则结果为NULL
 
 ### 值比较
@@ -1341,7 +1399,7 @@ OR
 ...
 ```
 
-> 如果左手边表达式得到NULL，或者没有相等的右手边值并且至少有一个右手边的表达式得到NULL，那么IN结构的结果将为NULL
+> 如果左边表达式得到NULL，或者没有相等的右边值并且至少有一个右边的表达式得到NULL，那么IN结构的结果将为NULL
 
 #### NOT IN
 
@@ -1357,7 +1415,7 @@ AND
 ...
 ```
 
-> 如果左手边表达式得到NULL，或者没有相等的右手边值并且至少有一个右手边的表达式得到NULL，那么NOT IN结构的结果将为NULL
+> 如果左边表达式得到NULL，或者没有相等的右边值并且至少有一个右边的表达式得到NULL，那么NOT IN结构的结果将为NULL
 
 #### ANY(array)
 
@@ -1365,7 +1423,7 @@ AND
 <expression> <operator> ANY (<array expression>) -- SOME是ANY的同义词
 ```
 
->如果数组表达式得到一个空数组，ANY的结果将为NULL。如果左手边的表达式得到NULL，ANY通常是NULL（尽管一个非严格比较操作符可能得到一个不同的结果）。另外，如果右手边的数组包含任何NULL元素或者没有得到真值比较结果，ANY的结果将是NULL
+>如果数组表达式得到一个空数组，ANY的结果将为NULL。如果左边的表达式得到NULL，ANY通常是NULL（尽管一个非严格比较操作符可能得到一个不同的结果）。另外，如果右边的数组包含任何NULL元素或者没有得到真值比较结果，ANY的结果将是NULL
 
 #### ALL(array)
 
@@ -1373,7 +1431,7 @@ AND
 <expression> <operator> ALL (<array expression>)
 ```
 
-> 如果数组表达式得到一个空数组，ALL的结果将为NULL。如果左手边的表达式得到NULL，ALL通常是NULL（尽管一个非严格比较操作符可能得到一个不同的结果）。另外，如果右手边的数组包含任何NULL元素或者没有得到假值比较结果，ALL的结果将是NULL（再次，假设是一个严格的比较操作符）
+> 如果数组表达式得到一个空数组，ALL的结果将为NULL。如果左边的表达式得到NULL，ALL通常是NULL（尽管一个非严格比较操作符可能得到一个不同的结果）。另外，如果右边的数组包含任何NULL元素或者没有得到假值比较结果，ALL的结果将是NULL（再次，假设是一个严格的比较操作符）
 
 ### 模式匹配
 
@@ -1382,7 +1440,7 @@ AND
 #### LIKE
 
 - 在pattern里的下划线 （_）代表（匹配）任何单个字符；而一个百分号（%）匹配任何零或更多个字符的序列
-- 要匹配文本的下划线或者百分号，而不是匹配其它字符，在pattern里相应的字符必须前导逃逸字符。缺省的逃逸字符是反斜线，但是你可以用ESCAPE子句指定一个不同的逃逸字符。要匹配逃逸字符本身，写两个逃逸字符
+- 要匹配文本的下划线或者百分号，而不是匹配其它字符，在pattern里相应的字符必须前导逃逸字符。默认的逃逸字符是反斜线，但是你可以用ESCAPE子句指定一个不同的逃逸字符。要匹配逃逸字符本身，写两个逃逸字符
 
 ```sql
 <string> LIKE <pattern> [ESCAPE <escape-character>]
@@ -1413,7 +1471,7 @@ AND
 
 ##### substring函数
 
-- 如果没有匹配它返回NULL，否则就是匹配模式的文本中的第一部分
+- 如果没有匹配，返回NULL，否则就是匹配模式的文本中的第一部分
 
 ```sql
 substring(<string> from <pattern>)
@@ -1427,7 +1485,7 @@ substring(<string> from <pattern>)
 regexp_replace(<source>, <pattern>, <replacement>[, <flags>])
 ```
 
-> replacement串可以包含\n，其中\n是 1 到 9， 表明源串里匹配模式里第n个圆括号子表达式的子串应该被插入，并且它可以包含\&表示应该插入匹配整个模式的子串。如果你需要放一个文字形式的反斜线在替换文本里，那么写\\。flags参数是一个可选的文本串，它包含另个或更多单字母标志，这些标志可以改变函数的行为。标志i指定大小写无关的匹配，而标志g指定替换每一个匹配的子串而不仅仅是第一个
+> replacement串可以包含\n，其中\n是 1 到 9， 表明源串里匹配模式里第n个圆括号子表达式的子串应该被插入，并且它可以包含\&表示应该插入匹配整个模式的子串。如果你需要放一个文字形式的反斜线在替换文本里，那么写`\\`。flags参数是一个可选的文本串，它包含另个或更多单字母标志，这些标志可以改变函数的行为。标志i指定大小写无关的匹配，而标志g指定替换每一个匹配的子串而不仅仅是第一个
 
 ##### regexp_match函数
 
