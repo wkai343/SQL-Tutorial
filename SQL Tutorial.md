@@ -1,7 +1,5 @@
 # SQL Tutorial
 
----
-
 ## 前置
 
 - 关系模型
@@ -73,12 +71,28 @@ WantedBy=multi-user.target
 \c <db>
 ```
 
-查看表
+查看表/索引等
+
+可加参数，查看具体
 
 ```postgresql
-\d [table]
+\d
 
-\d+ [table]
+\d+
+
+\du或\dg (角色)
+
+\dp或\z (权限分配)
+
+\dn (模式)
+
+\dt (表)
+
+\di (索引)
+
+\df (函数)
+
+\dfn(normal) \dfa(aggregates) \dfw(windows functions) \dft(trigger)
 ```
 
 查看sql命令
@@ -139,6 +153,15 @@ WantedBy=multi-user.target
 - 一个转义字符串常量可以通过在开单引号前面写一个字母E（大写或小写形式）来指定
 - PostgreSQL提供了另一种被称为“美元引用”的方式来书写字符串常量
 
+###### 美元引用的字符串常量
+
+一个美元引用的字符串常量由一个美元符号（$）、一个可选的另个或更多字符的“标签”、另一个美元符号、一个构成字符串内容的任意字符序列、一个美元符号、开始这个美元引用的相同标签和一个美元符号组成。
+
+```sql
+$$Dianne's horse$$
+$SomeTag$Dianne's horse$SomeTag$
+```
+
 ##### 位串常量
 
 - 二进制使用一个前导B（大写或小写形式）
@@ -153,7 +176,7 @@ digits.[digits][e[+-]digits]
 digitse[+-]digits
 ```
 
-- 如果一个不包含小数点和指数的数字常量的值适合类型integer（32 位），它首先被假定为类型integer。否则如果它的值适合类型bigint（64 位），它被假定为类型bigint。再否则它会被取做类型numeric。包含小数点和/或指数的常量总是首先被假定为类型numeric。
+- 如果一个不包含小数点和指数的数字常量的值适合类型integer（32 位），它首先被假定为类型integer。否则如果它的值适合类型bigint（64 位），它被假定为类型bigint。再否则它会被取做类型numeric。包含小数点和/或指数的常量总是首先被假定为类型numeric
 
 ##### 其他类型的常量
 
@@ -224,7 +247,7 @@ NOT <boolean> → <boolean>
 > != 是一个别名
 > 通常也可以比较相关数据类型的值；例如integer > bigint 将起作用。 这种排序的某些情况直接由“cross-type” 比较操作符实现，但是，如果没有这种操作符，解析器将把不太通用的类型强制为更通用的类型，并应用后者的比较操作符。
 
-###### 比较谓词
+##### 比较谓词
 
 | 描述 | 谓词 | 示例(s) |
 |---|---|---|
@@ -258,7 +281,7 @@ NOT <boolean> → <boolean>
 2 NOT BETWEEN SYMMETRIC 3 AND 1 → f
 ```
 
-- 不相等, 将空(null)视为可比值
+- 不相等, 将NULL视为可比值
 
 ```sql
 <datatype> IS DISTINCT FROM <datatype> → <boolean>
@@ -266,7 +289,7 @@ NOT <boolean> → <boolean>
 NULL IS DISTINCT FROM NULL → f (而不是 NULL)
 ```
 
-- 相等, 将空(null)视为可比值
+- 相等, 将NULL视为可比值
 
 ```sql
 <datatype> IS NOT DISTINCT FROM <datatype> → <boolean>
@@ -386,23 +409,45 @@ NULL::<boolean> IS NOT UNKNOWN → f (而不是 NULL)
 
 > 子表达式的计算顺序没有被定义
 
+#### 行构造器
+
+一个行构造器是能够构建一个行值（也称作一个组合类型）并用值作为其成员域的表达式。
+
+```sql
+SELECT ROW(1,2.5,'this is a test');
+```
+
+当在列表中有超过一个表达式时，关键词ROW是可选的。
+
+默认情况下，由一个ROW表达式创建的值是一种匿名记录类型。如果必要，它可以被造型为一种命名的**组合类型**或者是一个表的**行类型**
+
 ### 调用函数
 
 - 位置参数、关键字参数、混合
 
 --
 
-## 基本数据类型
+## 数据类型
 
-- 用户可以使用CREATE TYPE命令为 PostgreSQL增加新的数据类型
+用户可以使用CREATE TYPE命令为 PostgreSQL增加新的数据类型
 
-### 布尔类型
+### 类型系统
+
+PostgreSQL数据类型被划分为基础类型、容器类型、域和伪类型。
+
+### 基础类型
+
+基础类型是那些被实现在SQL语言层面之下的类型（通常用一种底层语言，如 C），例如integer。它们通常对应于常说的抽象数据类型。
+
+枚举（enum）类型可以被认为是基础类型的一个子类。主要区别是它们可以使用SQL命令创建。
+
+#### 布尔类型
 
 布尔常量可以表示为SQL关键字TRUE, FALSE,和 NULL.
 
-> 注意语法分析程序会把TRUE 和 FALSE 自动理解为boolean类型，但是不包括NULL，因为它可以是任何类型的。因此在某些语境中你也许要将 NULL 转化为显示boolean类型，例如NULL::boolean.
+> 注意语法分析程序会把TRUE 和 FALSE 自动理解为boolean类型，但是不包括NULL，因为它可以是任何类型的。因此在某些语境中你也许要将 NULL 转化为显示boolean类型，例如NULL::boolean
 
-### 数字类型
+#### 数字类型
 
 |类型|字节|
 |---|---|
@@ -412,8 +457,11 @@ NULL::<boolean> IS NOT UNKNOWN → f (而不是 NULL)
 |numeric|可变|
 |real|4|
 |double precision|8|
+|smallserial, serial2|2|
+|serial, serial4|4|
+|bigserial, serial8|8|
 
-#### 任意精度
+##### 任意精度
 
 ```sql
 NUMERIC(precision, scale) -- 精度必须为正数，小数位数可以为零或者正数
@@ -435,7 +483,7 @@ NaN
 > 无穷大只能存储在无约束的numeric中，因为它名义上超过了任何有限精度限制
 > 类型decimal和numeric是等效的。两种类型都是SQL标准的一部分
 
-#### 浮点数
+##### 浮点数
 
 > PostgreSQL还支持 SQL 标准表示法float和float(p)用于声明非精确的数字类型。在这里，p指定以二进制位表示的最低可接受精度。在选取real类型的时候，PostgreSQL接受float(1)到float(24)，在选取double precision的时候，接受float(25)到float(53)。在允许范围之外的p值将导致一个错误。没有指定精度的float将被当作是double precision
 > 在对值进行圆整时，numeric类型会圆到远离零的整数，而（在大部分机器上）real和double precision类型会圆到最近的偶数上
@@ -448,7 +496,24 @@ Infinity(inf)
 NaN
 ```
 
-### 字符类型
+##### 序数
+
+- 从1开始
+- smallserial、serial和bigserial类型不是真正的类型
+
+```sql
+CREATE TABLE tablename (
+colname SERIAL
+);
+等价于以下语句：
+CREATE SEQUENCE tablename_colname_seq AS integer;
+CREATE TABLE tablename (
+colname integer NOT NULL DEFAULT nextval('tablename_colname_seq')
+);
+ALTER SEQUENCE tablename_colname_seq OWNED BY tablename.colname;
+```
+
+#### 字符类型
 
 |类型|描述|
 |---|---|
@@ -460,7 +525,7 @@ NaN
 > 如果不带长度说明词使用character varying，那么该类型接受任何长度的串。这是一个PostgreSQL的扩展
 > PostgreSQL提供text类型，它可以存储任何长度的串。尽管类型text不是SQL标准，但是许多其它 SQL 数据库系统也有它
 
-### 字节类型
+#### 字节类型
 
 | 名字 | 存储尺寸 | 描述 |
 |---|---|---|
@@ -470,7 +535,7 @@ NaN
 
 整个串以序列\x开头
 
-### 位串类型
+#### 位串类型
 
 |类型|描述|
 |---|---|
@@ -480,7 +545,7 @@ NaN
 > 写一个没有长度的bit等效于bit(1)，没有长度的bit varying意味着没有长度限制。
 > 一个位串值对于每8位的组需要一个字节，外加总共5个或8个字节，这取决于串的长度
 
-### 枚举类型
+#### 枚举类型
 
 - 枚举类型可以使用CREATE TYPE命令创建
 
@@ -491,11 +556,11 @@ CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy');
 > 枚举标签是大小写敏感的
 > 一个枚举值在磁盘上占据4个字节
 
-#### 排序
+##### 排序
 
 > 一个枚举类型的值的排序是该类型被创建时所列出的值的顺序。枚举类型的所有标准的比较操作符以及相关聚集函数都被支持
 
-### 日期/时间类型
+#### 日期/时间类型
 
 |名字 | 存储尺寸 | 描述 | 最小值 | 最大值 | 解析度|
 |---|---|---|---|---|---|
@@ -510,7 +575,7 @@ CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy');
 >
 > time、timestamp和interval接受一个可选的精度值 p，这个精度值声明在秒域中小数点之 后保留的位数。缺省情况下，在精度上没有明确的边界。p允许范围是从 0 到 6。 interval类型有一个附加选项，它可以通过写下面之一的短语来限制存储的fields的集合： YEAR MONTH DAY HOUR MINUTE SECOND YEAR TO MONTH DAY TO HOUR DAY TO MINUTE DAY TO SECOND HOUR TO MINUTE HOUR TO SECOND MINUTE TO SECOND
 
-#### 特殊值
+##### 特殊值
 
 |输入串 | 合法类型 | 描述|
 |---|---|---|
@@ -523,11 +588,11 @@ CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy');
 |yesterday | date, timestamp | 昨日午夜 (00:00)|
 |allballs | time | 00:00:00.00 UTC|
 
-### 数组
+### 容器类型
+
+#### 数组
 
 - PostgreSQL允许一个表中的列定义为变长多维数组。可以创建任何内建或用户定义的基类、枚举类型、组合类型或者域的数组
-
-#### 定义
 
 ```sql
 <type>[];
@@ -537,7 +602,148 @@ CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy');
 
 > 不会强制维度和尺寸
 
-#### 切片
+##### 数组构造器
+
+一个数组构造器是一个能构建一个数组值并且将值用于它的成员元素的表达式。一个简单的数组构造器由关键词ARRAY、一个左方括号[、一个用于数组元素值的表达式列表（用逗号分隔）以及最后的一个右方括号]组成
+
+```sql
+SELECT ARRAY[1,2,3+4];
+```
+
+默认情况下，数组元素类型是成员表达式的公共类型，可以通过显式将数组构造器造型为想要的类型来重载
+
+```sql
+SELECT ARRAY[1,2,22.7]::integer[];
+```
+
+多维数组值可以通过嵌套数组构造器来构建。在内层的构造器中，关键词ARRAY可以被忽略
+
+```sql
+SELECT ARRAY[ARRAY[1,2], ARRAY[3,4]];
+```
+
+##### 切片
+
+#### 组合类型
+
+一个组合类型表示一行或一个记录的结构，它本质上就是一个域名和它们数据类型的列表。PostgreSQL允许把组合类型用在很多能用简单类型的地方。例如，一个表的一列可以被声明为一种组合类型
+
+```sql
+CREATE TYPE complex AS (
+r double precision,
+i double precision
+);
+```
+
+#### 范围类型
+
+范围类型是表达某种元素类型（称为范围的subtype）的一个值的范围的数据类型
+
+##### 内建范围类型和多范围类型
+
+PostgreSQL 带有下列内建范围类型：
+
+- int4range — integer的范围 int4multirange — 相应的多重范围
+- int8range — bigint的范围 int8multirange — 相应的多重范围
+- numrange — numeric的范围 nummultirange — 相应的多重范围
+- tsrange — 不带时区的 timestamp的范围 tsmultirange — 相应的多重范围
+- tstzrange — 带时区的 timestamp的范围 tstzmultirange — 相应的多重范围
+- daterange — date的范围 datemultirange — 相应的多重范围
+
+此外，你可以定义自己的范围类型
+
+##### 范围输入和输出
+
+```sql
+(lower-bound,upper-bound)
+(lower-bound,upper-bound]
+[lower-bound,upper-bound)
+[lower-bound,upper-bound]
+empty
+```
+
+```sql
+-- 包括 3，不包括 7，并且包括 3 和 7 之间的所有点
+SELECT '[3,7)'::int4range;
+-- 既不包括 3 也不包括 7，但是包括之间的所有点
+SELECT '(3,7)'::int4range;
+-- 只包括单独一个点 4
+SELECT '[4,4]'::int4range;
+-- 不包括点（并且将被标准化为 '空'）
+SELECT '[4,4)'::int4range;
+```
+
+多范围输入
+
+```sql
+SELECT '{}'::int4multirange;
+SELECT '{[3,7)}'::int4multirange;
+SELECT '{[3,7), [8,9)}'::int4multirange;
+```
+
+##### 构造范围和多范围
+
+- 每一种范围类型都有一个与其同名的构造器函数
+- 构造器函数接受两个或三个参数
+- 两个参数的形式以标准的形式构造一个范围（下界是包含的，上界是排除的），而三个参数的形式按照第三个参数指定的界限形式构造一个范围，'()', '(]', '[)', '[]'
+
+##### 离散范围类型
+
+一种范围的元素类型具有一个良定义的“步长”(每一个元素值都有一种清晰的“下一个”或“上一个”值)，例如integer或date。在这些类型中，如果两个元素之间没有合法值，它们可以被说成是相邻。这与连续范围相反，连续范围中总是（或者几乎总是）可以在两个给定值之间标识其他元素值。例如，numeric类型之上的一个范围就是连续的，timestamp上的范围也是（尽管timestamp具有有限的精度，并且在理论上可以被当做离散的，最好认为它是连续的，因为通常并不关心它的步长）。
+
+一个离散范围类型应该具有一个正规化函数，它知道元素类型期望的步长。正规化函数负责把范围类型的相等值转换成具有相同的表达，特别是与包含或者排除界限一致。如果没有指定一个正规化函数，那么具有不同格式的范围将总是会被当作不等，即使它们实际上是表达相同的一组值。
+
+### 域类型
+
+域是一种用户定义的数据类型，它基于另一种底层类型。根据需要，它可以有约束来限制其有效值为底层类型所允许值的一个子集。如果没有约束，它的行为就和底层类型一样。例如，任何适用于底层类型的操作符或函数都对该域类型有效。底层类型可以是任何内建或者用户定义的基础类型、枚举类型、数组类型、组合类型、范围类型或者另一个域。
+
+```sql
+CREATE DOMAIN posint AS integer CHECK (VALUE > 0);
+CREATE TABLE mytable (id posint);
+INSERT INTO mytable VALUES(1); -- works
+INSERT INTO mytable VALUES(-1); -- fails
+```
+
+### 伪类型
+
+PostgreSQL类型系统包含了一些特殊目的的项，它们被统称为伪类型。一个伪类型不能被用作一个列的数据类型，但是它可以被用来定义一个函数的参数或者结果类型
+
+|名字|描述|
+|---|---|
+|any| 表示一个函数可以接受任意输入数据类型|
+|cstring| 表示一个函数接受或者返回一个非空结尾的C字符串|
+|internal| 表示一个函数接受或返回一个服务器内部数据类型|
+|language_handler| 一个被声明为返回language_handler的过程语言调用处理器|
+|fdw_handler| 一个被声明为返回fdw_handler的外部数据包装器处理器|
+|table_am_handler| 一种表访问方法处理程序，声明要返回|
+|index_am_handler| 一个被声明为返回index_am_handler索引访问方法处理器|
+|tsm_handler| 一个被声明为返回tsm_handler的表采样方法处理器|
+|record| 标识一个接收或者返回一个未指定的行类型的函数|
+|trigger| 一个被声明为返回trigger的触发器函数|
+|event_trigger| 一个被声明为返回event_trigger的事件触发器函数|
+|pg_ddl_command| 标识一种对事件触发器可用的 DDL 命令的表达|
+|void| 表示一个函数不返回值|
+|unknown| 标识一种还未被解析的类型，例如一个未修饰的字符文本|
+
+#### 多态类型
+
+[多态](#多态)
+
+|名称|家族|描述|
+|---|---|---|
+|anyelement |Simple| 表示函数接受任何数据类型|
+|anyarray |Simple| 表示函数接受任何数组数据类型|
+|anynonarray |Simple| 表示函数接受任何非数组数据类型|
+|anyenum |Simple| 表示函数接受任何enum数据类型|
+|anyrange |Simple| 表示函数接受任何范围数据类型|
+|anymultirange |Simple| 表示函数接受任何多范围数据类型|
+|anycompatible |Common| 表示函数接受任何数据类型，并自动将多个参数提升为公共数据类型|
+|anycompatiblearray |Common| 表示函数接受任何数组数据类型，并自动将多个参数提升为公共数据类型|
+|anycompatiblenonarray |Common| 表示函数接受任何非数组数据类型，并自动将多个参数提升为公共数据类型|
+|anycompatiblerange |Common| 表示函数接受任何范围数据类型，并自动将多个参数提升为公共数据类型|
+|anycompatiblemultirange |Common| 表示函数接受任何多范围数据类型，多个参数自动升级到公用数据类型|
+
+对于多态类型的“common”家族，匹配和推断规则工作与“simple”家族相同，有一个主要区别：参数的实际类型不需要相同，只要可以隐式地将它们转换为单一的公共类型即可。
 
 ---
 
@@ -1455,6 +1661,8 @@ AND
 
 #### SIMILAR TO正则表达式
 
+...
+
 #### POSIX正则表达式
 
 正则匹配操作符
@@ -1504,7 +1712,7 @@ regexp_match(<string>, <pattern>, <replacement>[, <flags>])
 ### 聚焦函数
 
 - 默认为ALL
-- 当遇到空值，只有count(*)不跳过
+- 只有count(*)不跳过NULL
 
 ```sql
 count(*) -- 统计元组个数
@@ -1517,7 +1725,41 @@ min([DISTINCT | ALL] <列名>)
 
 ### 窗口函数
 
+- 提供了跨越与当前查询行相关的行集执行计算的能力
 - 可以和聚焦函数一起用
+
+#### 聚焦函数的使用
+
+```sql
+SUM(<计算字段名>)
+OVER (
+PARTITION BY <分组字段名> ORDER BY <排序字段> <排序规则>
+) [AS <alias>]
+```
+
+#### RANK(), ROW_NUMBER()
+
+```sql
+RANK() OVER (
+PARTITION BY <列名1> [, 列名2]... -- 可选，用于指定分组列
+ORDER BY <列名3> [ASC|DESC] [, 列名4 [ASC|DESC]]... -- 用于指定排序列及排序方式
+) [AS <alias>]
+```
+
+#### LAG(), LEAD()
+
+- column_name：要获取值的列名
+- offset：表示要向上偏移的行数。例如，offset为1表示获取上一行的值，offset为2表示获取上两行的值，以此类推
+- default_value：可选参数，用于指定当没有前一行时的默认值
+- PARTITION BY和ORDER BY子句可选，用于分组和排序数据
+
+```sql
+LAG(
+column_name, offset, default_value
+) OVER (
+PARTITION BY partition_column ORDER BY sort_column
+) [AS <alias>]
+```
 
 | 函数 | 描述 |
 |---|---|
@@ -1531,7 +1773,11 @@ min([DISTINCT | ALL] <列名>)
 
 ### 数学函数
 
+todo
+
 ### 三角函数
+
+todo
 
 ### 随机函数
 
@@ -1543,6 +1789,8 @@ setseed (double precision) → void
 
 ### 字符串操作符和函数
 
+todo
+
 ### 时间函数
 
 ```sql
@@ -1553,7 +1801,7 @@ current_date
 now()
 ```
 
-#### 权限
+## 权限
 
 - 分配权限
 
@@ -1577,7 +1825,7 @@ FROM <角色>[, ...]
 所有权限：ALL
 所有角色：PUBLIC
 
-##### 角色属性
+### 角色属性
 
 - login privilege
 
@@ -1615,3 +1863,521 @@ FROM <角色>[, ...]
   ```sql
   CREATE ROLE <name> PASSWORD '<密码>';
   ```
+
+## 触发器
+
+- 按触发动作的间隔尺寸分：行级和语句级；按触发时机分：BEFORE、AFTER和INSTEAD OF
+- 一个以继承或者分区层次中父表为目标的语句不会导致受影响的子表的语句级触发器被引发，只有父表的语句级触发器会被引发。不过，受影响的子表的行级触发器将被引发。
+
+### 事件触发器
+
+和常规触发器相似，可以用任何包括了事件触发器支持的过程语言或者 C 编写事件触发器，但是不能用纯 SQL 编写。
+
+## 扩展SQL
+
+PostgreSQL提供四种函数：
+
+- 查询语言函数（用SQL编写的函数）
+- 过程语言函数（例如，用PL/pgSQL或PL/Tcl编写的函数）
+- 内部函数（由C编写并且已经被静态链接到PostgreSQL服务器）
+- C语言函数（（或者可以与 C 兼容的语言，如 C++）。 这类函数被编译成动态载入对象（也被称为共享库）并且由服务器在需要时载入。）
+
+### SQL例程(ROUTINE)
+
+`ALTER ROUTINE`和`DROP ROUTINE`这样的命令可以操作函数和过程(没有CREATE ROUTINE命令)
+
+语法要求函数体/过程体被写作一个字符串常量。使用用于字符串常量的美元引用通常最方便。如果选择使用常规的单引号引用的字符串常量语法，你必须在函数体/过程体中双写单引号（'）和反斜线（\）
+
+#### SQL函数
+
+- 函数可以作为查询或DML命令的一部分调用
+- 不能在SQL函数中使用事务控制命令，例如COMMIT、SAVEPOINT，以及一些工具命令，例如VACUUM
+
+SQL语言中的任何命令集合都能被打包在一起并且被定义成一个函数。除了SELECT查询，命令可以包括数据修改查询（INSERT、UPDATE以及DELETE）和其他 SQL 命令。不过，最后一个命令必须是一个SELECT或者带有一个RETURNING子句，该命令必须返回符合函数返回类型的数据。或者，如果你想要定义一个执行动作但是不返回有用的值的函数，你可以把它定义为返回void(pgsql扩展)。
+
+```sql
+CREATE FUNCTION <函数名>(参数) [RETURNS <返回值>] AS '<函数体>' LANGUAGE SQL;
+```
+
+#### SQL过程
+
+- 过程用CALL命令的调用
+- 过程提供函数中不具备的附加的功能性例如事务控制， 在执行期间过程可以提交或回滚事务，只要调用CALL命令不是显式事务块的一部分。
+
+```sql
+CREATE PROCEDURE <过程名>(参数) AS '<过程体>' LANGUAGE SQL;
+```
+
+#### 组合类型的参数或返回值
+
+1. 参数是组合类型
+2. 返回值是组合类型
+
+  使用结果的域
+
+  ```sql
+  SELECT (new_emp()).name; -- 字段记法，外层括号不可少
+  SELECT name(new_emp()); --函数记法
+  ```
+
+#### 参数
+
+参数可以被标记为IN（默认）、OUT、INOUT或者VARIADIC。一个INOUT参数既作为一个输入参数又作为一个输出参数。VARIADIC参数是输入参数
+
+#### 引用参数
+
+1. $n
+2. 参数声明为带有一个名称
+
+> 如果参数名称与函数内当前 SQL 命令中的任意列名相同，列名将优先。如果不想这样，可以用函数本身的名称来限定参数名，也就是<function_name>.<argument_name>
+> 参数只能被用做数据值而不能作为标识符
+
+#### 输出参数
+
+一种描述一个函数的结果的替代方法是定义它的输出参数
+
+```sql
+CREATE FUNCTION add_em (IN x int, IN y int, OUT sum int) -- IN可省略
+AS 'SELECT x + y'
+LANGUAGE SQL;
+```
+
+以上代码和returns没区别，输出参数的真正价值是它们提供了一种方便的方法来定义返回多个列的函数
+
+```sql
+CREATE FUNCTION sum_n_product (x int, y int, OUT sum int, OUT product int)
+AS 'SELECT x + y, x * y'
+LANGUAGE SQL;
+```
+
+实质是创建了一个匿名的组合类型
+
+```sql
+CREATE TYPE sum_prod AS (sum int, product int);
+CREATE FUNCTION sum_n_product (int, int) RETURNS sum_prod
+AS 'SELECT $1 + $2, $1 * $2'
+LANGUAGE SQL;
+```
+
+如果给定了一个RETURNS子句，它必须RETURNS record
+
+##### 有输出参数的过程
+
+在CALL命令中，输出参数必须包括在参数列表中
+
+#### 可变参数
+
+只要“可选的”参数都是相同的数据类型，SQL函数可以被声明为接受可变数量的参数。可选的参数将被作为一个数组传递给该函数。声明该函数时要把最后一个参数标记为VARIADIC，这个参数必须被声明为一个数组类型
+
+##### 定义变参函数
+
+```sql
+CREATE FUNCTION mleast(VARIADIC arr numeric[]) RETURNS numeric AS $$
+SELECT min($1[i]) FROM generate_subscripts($1, 1) g(i);
+$$ LANGUAGE SQL;
+```
+
+##### 调用变参函数
+
+```sql
+SELECT mleast(10, -1, 5, 4.4);
+
+SELECT mleast(VARIADIC ARRAY[10, -1, 5, 4.4]);
+
+SELECT mleast(VARIADIC ARRAY[]::numeric[]);
+```
+
+#### 默认参数
+
+```sql
+CREATE FUNCTION foo(a int, b int DEFAULT 2, c int DEFAULT 3) -- =符号也可以用来替代关键词DEFAULT
+```
+
+#### 返回集合的SQL函数
+
+与只返回一行的函数不同，当一个 SQL 函数被声明为返回`SETOF <type>`时，该函数的最后一个查询会被执行完，并且它输出的每一行都会被作为结果集的一个元素返回。
+
+```sql
+CREATE FUNCTION getfoo(int) RETURNS SETOF foo AS $$
+SELECT * FROM foo WHERE fooid = $1;
+$$ LANGUAGE SQL;
+```
+
+##### 返回多个带有由输出参数定义的列的行
+
+```sql
+CREATE FUNCTION sum_n_product_with_tab (x int, OUT sum int, OUT product int)
+RETURNS SETOF record
+AS $$
+SELECT $1 + tab.y, $1 * tab.y FROM tab;
+$$ LANGUAGE SQL;
+```
+
+#### 返回TABLE的SQL函数
+
+还有另一种方法可以把函数声明为返回一个集合，即使用`RETURNS TABLE(columns)`语法
+
+#### 多态
+
+[多态类型](#多态类型)
+
+- 当所有输入都是未知类型时，通用类型解析规则默认选择类型text
+- 允许具有多态参数和固定的返回类型，但是反过来不行
+
+#### 重载
+
+删除时，需要加参数指定具体的函数
+
+### 过程语言
+
+PL/pgSQL、PL/Tcl、PL/Perl和PL/Python等
+
+#### PL/pgSQL
+
+PostgreSQL数据库系统的可载入的过程语言
+
+- 可以被用来创建函数，存储过程，和触发器过程
+- 对SQL语言增加控制结构
+- 可以执行复杂计算
+- 继承所有用户定义类型、函数、存储过程和操作符
+- 可以被定义为受服务器信任
+- 便于使用
+
+##### 优点
+
+- 客户端和服务器之间的额外往返通信被消除
+- 客户端不需要的中间结果不必被整理或者在服务器和客户端之间传送
+- 多轮的查询解析可以被避免
+
+##### 支持的参数和结果数据类型
+
+- 可以通过使用`VARIADIC`标记被声明为接受数量不定的参数
+- 可以声明为接受和返回多态类型
+- 可以返回一个任意（可作为一个单一实例返回的）数据类型的“集合”（或表）
+- 可以被声明为返回`void`（另外一种选择是，在那种情况下它可以被写作一个过程）
+- 可以声明为用输出参数代替返回类型的一个显式说明，`RETURNS TABLE`符号也可以被用来替代`RETURNS SETOF`
+
+##### 结构
+
+块结构
+
+```sql
+[ label ]
+[ DECLARE
+<declarations> ]
+BEGIN
+<statements>
+END [ label ];
+```
+
+##### 声明
+
+```sql
+name [ CONSTANT ] type [ NOT NULL ] [ { DEFAULT | := | = } expression ];
+```
+
+如果给定DEFAULT子句，它会指定进入该块时分 配给该变量的初始值。如果没有给出DEFAULT子句， 则该变量被初始化为SQL空值。 CONSTANT选项阻止该变量在初始化之后被赋值，这样它的值在块的持续期内保持不变。COLLATE 选项指定用于该变量的一个排序规则。如果指定了NOT NULL，对该变量赋值为空值会导致一个 运行时错误。所有被声明为NOT NULL的变量必须 被指定一个非空默认值。等号（=）可以被用来代替PL/SQL兼容的 :=
+
+一个变量的默认值会在每次进入该块时被计算并且赋值给该变量（不是每次函数调用只计算一次）。因此，例如将now()赋值给类型为timestamp的一个变量将会导致该变量具有当前函数调用的时间，而不是该函数被预编译的时间
+
+###### ALIAS
+
+```sql
+<newname> ALIAS FOR <oldname>;
+```
+
+你可以为任意变量声明一个别名。其主要实际用途是为预先决定了名称的变量分配一个不同的名称，例如在一个触发器过程中的NEW或OLD
+
+###### 复制类型
+
+```sql
+variable%TYPE
+```
+
+%TYPE提供了一个变量或表列的数据类型。你可以用它来声明将保持数据库值的变量。例如，如果你在users中有一个名为user_id的列。要定义一个与users.user_id具有相同数据类型的变量：
+
+```sql
+user_id users.user_id%TYPE;
+```
+
+通过使用%TYPE，你不需要知道你要引用的结构的实际数据类型，而且最重要地，如果被引
+用项的数据类型在未来被改变（例如你把user_id的类型从integer改为real），你不需要改
+变你的函数定义
+
+##### 行类型
+
+```sql
+<name> <table_name>%ROWTYPE;
+```
+
+一个组合类型的变量被称为一个行变量（或行类型变量）
+
+##### 记录类型
+
+```sql
+<name> RECORD;
+```
+
+- 记录变量和行类型变量类似，但是它们没有预定义的结构
+- RECORD并非一个真正的数据类型，只是一个占位符
+
+##### 函数
+
+```sql
+CREATE FUNCTION somefunc() RETURNS integer AS $$
+<< outerblock >>
+DECLARE
+quantity integer := 30;
+BEGIN
+RETURN quantity;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+> 在任何PL/pgSQL函数体的外部确实有一个隐藏的“外层块”包围着。这个块提供了该函数参数（如果有）的声明，以及某些诸如FOUND之类特殊变量。外层块被标上函数的名称，这意味着参数和特殊变量可以用该函数的名称限定。
+
+###### 声明函数参数
+
+传递给函数的参数被命名为标识符$1、$2等等。可选地，能够为$n参数名声明别名来增加可读性。不管是别名还是数字标识符都能用来引用参数值。
+
+创建别名
+
+- 在CREATE FUNCTION命令中为参数给定一个名称
+
+```sql
+CREATE FUNCTION sales_tax(subtotal real) RETURNS real AS $$
+BEGIN
+RETURN subtotal * 0.06;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+- 显式地使用声明语法声明一个别名
+
+```sql
+name ALIAS FOR $n;
+```
+
+```sql
+CREATE FUNCTION sales_tax(real) RETURNS real AS $$
+DECLARE
+subtotal ALIAS FOR $1;
+BEGIN
+RETURN subtotal * 0.06;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+> 这两个例子并非完全等效。在第一种情况中，subtotal可以被引用为sales_tax.subtotal，但在第二种情况中它不能这样引用（如果我们为内层块附加了一个标签，subtotal则可以用那个标签限定）
+
+输出参数
+
+当一个PL/pgSQL函数被声明为带有输出参数，输出参数可以用普通输入参数相同的方式被给定$n名称以及可选的别名。一个输出参数实际上是一个最初为 NULL 的变量，它应当在函数的执行期间被赋值。该参数的最终值就是要被返回的东西
+
+```sql
+CREATE FUNCTION sales_tax(subtotal real, OUT tax real) AS $$
+BEGIN
+tax := subtotal * 0.06;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+> 注意我们忽略了RETURNS real — 我们也可以包括它，但是那将是冗余
+
+调用带有 OUT 参数的函数， 在函数调用中省略输出参数：
+
+```sql
+SELECT sales_tax(100.00);
+```
+
+可变参数
+
+当PL/pgSQL函数的返回类型被声明为多态类型时，一个特殊的参数 $0 已创建。$0可以被给定一个别名。
+
+```sql
+CREATE FUNCTION add_three_values(v1 anyelement, v2 anyelement, v3 anyelement)
+RETURNS anyelement AS $$
+DECLARE
+result ALIAS FOR $0;
+BEGIN
+result := v1 + v2 + v3;
+RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+> 通过声明一个或多个输出参数为多态类型可以得到同样的效果。在这种情况下，不使用特殊的$0参数，输出参数本身就用作相同的目的
+
+##### 过程
+
+带输出参数的过程在调用时，必须带所有参数。对于出参，SQL调用执行存储过程时可指定为NULL
+
+CALL sum_n_product(2, 4, NULL, NULL);
+
+##### 基本语句
+
+###### 赋值
+
+```sql
+variable { := | = } expression;
+```
+
+类型转换
+
+1. 强转为变量的类型
+2. 转换为文本，如果无法被接受则运行时错误
+
+###### SQL命令
+
+todo
+
+##### 控制结构
+
+###### 函数返回
+
+`RETURN`
+
+- 带有一个表达式的RETURN用于终止函数并把expression的值返回给调用者
+- 如果你声明函数返回void，一个RETURN语句可以被用来提前退出函数；但是不要在RETURN后面写一个表达式
+
+`RETURN NEXT`以及`RETURN QUERY`
+
+```sql
+RETURN NEXT <expression>;
+RETURN QUERY <query>;
+RETURN QUERY EXECUTE <command-string> [ USING <expression> [, ... ] ];
+```
+
+当一个PL/pgSQL函数被声明为返回SETOF `<sometype>`，那么遵循的过程则略有不同。在这种情况下，要返回的个体项被用一个`RETURN NEXT`或者`RETURN QUERY`命令的序列指定，并且接着会用一个不带参数的最终`RETURN`命令来指示这个函数已经完成执行。
+
+`RETURN NEXT`可以被用于标量和复合数据类型；对于复合类型，将返回一个完整的结果“表”。`RETURN QUERY`将执行一个查询的结果追加到一个函数的结果集中。在一个单一的返回集合的函数中，`RETURN NEXT`和`RETURN QUERY`可以被随意地混合，这样它们的结果将被串接起来。
+
+如果你声明函数带有输出参数，只需要写不带表达式的`RETURN NEXT`。在每一次执行时，输出参数变量的当前值将被保存下来用于最终返回为结果的一行。注意为了创建一个带有输出参数的集合返回函数，在有多个输出参数时，你必须声明函数为返回`SETOF record`；或者如果只有一个类型为sometype的输出参数时，声明函数为`SETOF <sometype>`。
+
+###### 过程返回
+
+过程没有返回值。因此，过程的结束可以不用`RETURN`语句。 如果想用一个`RETURN`语句提前退出代码，只需写一个没有表达式的`RETURN`。
+
+###### 条件
+
+IF和CASE
+
+三种形式的IF:
+
+- `IF ... THEN ... END IF`
+- `IF ... THEN ... ELSE ... END IF`
+- `IF ... THEN ... ELSIF ... THEN ... ELSE ... END IF`
+
+以及两种形式的CASE:
+
+- `CASE ... WHEN ... THEN ... ELSE ... END CASE`
+- `CASE WHEN ... THEN ... ELSE ... END CASE`
+
+###### 循环
+
+LOOP, EXIT, CONTINUE, WHILE, FOR
+
+`EXIT`
+
+```sql
+EXIT [ label ] [ WHEN <boolean-expression> ];
+```
+
+`CONTINUE`
+
+```sql
+CONTINUE [ label ] [ WHEN <boolean-expression> ];
+```
+
+`LOOP`
+
+```sql
+[ label ]
+LOOP
+<statements>
+END LOOP [ label ];
+```
+
+`WHILE`
+
+```sql
+[ label ]
+WHILE <boolean-expression> LOOP
+<statements>
+END LOOP [ label ];
+```
+
+`FOR`
+
+```sql
+[ label ]
+FOR <name> IN [ REVERSE ] <expression> .. <expression> [ BY expression ] LOOP
+<statements>
+END LOOP [ label ];
+```
+
+这种形式的FOR会创建一个在一个整数范围上迭代的循环。变量name会自动定义为类型integer并且只在循环内存在（任何该变量名的现有定义在此循环内都将被忽略）。给出范围上下界的两个表达式在进入循环的时候计算一次。如果没有指定BY子句，迭代步长为1，否则步长是BY中指定的值，该值也只在循环进入时计算一次。如果指定了REVERSE，那么在每次迭代后步长值会被减除而不是增加。
+
+```sql
+[ label ]
+FOR <target> IN <query> LOOP
+<statements>
+END LOOP [ label ];
+```
+
+在这类FOR语句中使用的query可以是任何返回行给调用者的 SQL 命令：最常见的是SELECT，但你也可以使用带有RETURNING子句的INSERT、UPDATE或DELETE。一些EXPLAIN之类的功能性命令也可以用在这里。
+
+```sql
+[ label ]
+FOREACH <target> [ SLICE <number> ] IN ARRAY <expression> LOOP
+<statements>
+END LOOP [ label ];
+```
+
+如果没有SLICE，或者如果没有指定SLICE 0，循环会通过计算expression得到的数组的个体
+元素进行迭代。target变量被逐一赋予每一个元素值，并且循环体会为每一个元素执行。元素会被按照存储顺序访问，而不管数组的维度数。
+
+通过一个正SLICE值，FOREACH通过数组的切片而不是单一元素迭代。SLICE值必须是一个不大于数组维度数的整数常量。target变量必须是一个数组，并且它接收数组值的连续切片，其中每一个切片都有SLICE指定的维度数。
+
+```sql
+CREATE FUNCTION scan_rows(int[]) RETURNS void AS $$
+DECLARE
+x int[];
+BEGIN
+FOREACH x SLICE 1 IN ARRAY $1
+LOOP
+RAISE NOTICE 'row = %', x;
+END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT scan_rows(ARRAY[[1,2,3],[4,5,6],[7,8,9],[10,11,12]]);
+
+NOTICE: row = {1,2,3}
+NOTICE: row = {4,5,6}
+NOTICE: row = {7,8,9}
+NOTICE: row = {10,11,12}
+```
+
+##### 异常
+
+```sql
+[ label ]
+[ DECLARE
+<declarations> ]
+BEGIN
+<statements>
+EXCEPTION
+WHEN <condition> [ OR <condition> ... ] THEN
+<handler_statements>
+[ WHEN <condition> [ OR <condition> ... ] THEN
+<handler_statements>
+... ]
+END;
+```
+
+> 进入和退出一个包含EXCEPTION子句的块要比不包含EXCEPTION的块开销大的多。因此，只在必要的时候使用EXCEPTION。
+
+##### 事务管理
+
+##### 触发器函数
