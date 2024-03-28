@@ -1,6 +1,6 @@
 # SQL Note
 
-## 参考文档
+## Postgresql参考文档
 
 [官方文档](https://postgres.cn/document)
 
