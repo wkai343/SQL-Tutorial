@@ -1184,15 +1184,50 @@ DROP INDEX <索引名>;
 #### 索引类型
 
 - PostgreSQL提供了多种索引类型：B-tree、Hash、GiST、SP-GiST、GIN 和 BRIN
-- 用关键字USING指定
+- 用关键字USING指定。例如`btree`、`hash`、`gist`、`spgist`、`gin`或者`brin`。默认为`btree`
 
 ```sql
 CREATE INDEX <name> ON <table> USING HASH (<column>);
 ```
 
+##### B-tree索引
+
+默认索引类型
+
+- `<`
+- `<=`
+- `=`
+- `>=`
+- `BETWEEN`
+- `IN`
+- `IS NULL`
+- `IS NOT NULL`
+
+##### Hash索引
+
+- `=`
+
+##### GiST索引
+
+通用搜索树索引
+
+##### SP-GiST索引
+
+空间分区GIST索引
+
+##### GIN索引
+
+通用倒排索引
+
+##### BRIN索引
+
+块范围索引
+
 #### 多列索引
 
 - 目前，只有 B-tree、GiST、GIN 和 BRIN 索引类型支持多列索引
+- 左边列是先导列
+- 默认情况下，一个多列索引最多可以使用32个字段
 
 ```sql
 CREATE INDEX <name> ON <table> (<column> [, ...]);
@@ -1226,6 +1261,19 @@ CREATE INDEX <name> ON <table> (LOWER(column));
 ```sql
 CREATE INDEX <name> ON <table> (<column>) WHERE <condition>;
 ```
+
+#### 覆盖索引
+
+一个索引包含了查询所需的所有列，而不需要回表到表中去查找其他列
+
+PostgreSQL 中的索引都属于二级索引，意味着索引和数据是分开存储的。因此通过索引查找数据即需要访问索引，又需要访问表，而表的访问是随机 I/O。为了解决这个性能问题，PostgreSQL 支持 Index-Only Scan，只需要访问索引的数据就能获得需要的结果，而不需要再次访问表中的数据。例如：
+
+```sql
+CREATE TABLE t (a int, b int, c int);
+CREATE UNIQUE INDEX idx_t_ab ON t USING btree (a, b) INCLUDE (c);
+```
+
+> 包括include, 多列索引最多可以包含32个字段
 
 ## 数据操纵
 
@@ -1424,8 +1472,8 @@ HAVING <boolean_expression>
 ```sql
 SELECT <select_list>
 FROM <table_expression>
-ORDER BY <sort_expression1> [ASC | DESC] [NULLS {FIRST | LAST}]
-[, sort_expression2 [ASC | DESC] [NULLS {FIRST | LAST}] ...]
+ORDER BY <sort_expression> [ASC | DESC] [NULLS {FIRST | LAST}]
+[, <sort_expression> [ASC | DESC] [NULLS {FIRST | LAST}] ...]
 ```
 
 ### 组合查询(UNION, INTERSECT, EXCEPT)
@@ -1636,6 +1684,31 @@ SET TRANSACTION ISOLATION LEVEL { READ UNCOMMITTED | READ COMMITTED | REPEATABLE
 SHOW TRANSACTION ISOLATION LEVEL;
 
 SHOW TRANSACTION_ISOLATION;
+```
+
+## EXPLAIN语句
+
+`EXPLAIN`语句用于显示查询计划，可以帮助我们理解查询的执行计划，从而优化查询
+
+查询计划的结构是一个计划结点的树。最底层的结点是扫描结点。不同的表访问模式有不同的扫描结点类型：顺序扫描、索引扫描、位图索引扫描
+
+```sql
+EXPLAIN <查询>;
+```
+
+被包含在圆括号中的数字是（从左至右）：
+
+- 估计的启动开销。在输出阶段可以开始之前消耗的时间，例如在一个排序结点里执行排序的时间
+- 估计的总开销。这个估计值基于的假设是计划结点会被运行到完成，即所有可用的行都被检索。不过实际上一个结点的父结点可能很快停止读所有可用的行
+- 这个计划结点输出行数的估计值。同样，也假定该结点能运行到完成
+- 预计这个计划结点输出的行平均宽度（以字节计算）
+
+### EXPLAIN ANALYZE
+
+`EXPLAIN ANALYZE`语句用于显示查询计划，并且执行查询，返回实际的执行计划
+
+```sql
+EXPLAIN ANALYZE <查询>;
 ```
 
 ## 函数与操作符
@@ -1899,53 +1972,71 @@ max([DISTINCT | ALL] <列名>)
 min([DISTINCT | ALL] <列名>)
 ```
 
+#### FILTER子句
+
+`FILTER`子句允许在聚集函数上应用一个过滤条件
+
+```sql
+SELECT avg(salary) FILTER (WHERE salary > 100000) FROM employees;
+```
+
 ### 窗口函数
 
 - 提供了跨越与当前查询行相关的行集执行计算的能力
 - 可以和聚集函数一起用
 
-#### 聚集函数的使用
-
 ```sql
-SUM(<计算字段名>)
-OVER (
-PARTITION BY <分组字段名> ORDER BY <排序字段> <排序规则>
-) [AS <alias>]
+<window_function>(<parameter list>) OVER (
+  [PARTITION BY <expression> [, ...]] -- 分区，类似于GROUP BY
+  [ORDER BY expression [ASC | DESC | USING operator] [NULLS { FIRST | LAST }] [, ...] -- 排序
+  [frame_clause] -- 窗口大小
+)
 ```
 
-#### RANK(), ROW_NUMBER()
+frame_clause
+
+该frame_clause指定构成窗口框架（当前分区的子集）的行集，用于作用于框架而不是整个分区的窗口函数
+
+`ROWS`或`RANGE`关键字
 
 ```sql
-RANK() OVER (
-PARTITION BY <列名1> [, 列名2]... -- 可选，用于指定分组列
-ORDER BY <列名3> [ASC|DESC] [, 列名4 [ASC|DESC]]... -- 用于指定排序列及排序方式
-) [AS <alias>]
+{RANGE | ROWS} <frame_start>
+{RANGE | ROWS} BETWEEN <frame_start> AND <frame_end>
 ```
 
-#### LAG(), LEAD()
+其中frame_start和frame_end可以是以下之一：
 
-- column_name：要获取值的列名
-- offset：表示要向上偏移的行数。例如，offset为1表示获取上一行的值，offset为2表示获取上两行的值，以此类推
-- default_value：可选参数，用于指定当没有前一行时的默认值
-- `PARTITION BY`和`ORDER BY`子句可选，用于分组和排序数据
+- `UNBOUNDED PRECEDING`
+- `UNBOUNDED FOLLOWING`
+- `CURRENT ROW`
+- `<offset> PRECEDING`
+- `<offset> FOLLOWING`
 
-```sql
-LAG(
-column_name, offset, default_value
-) OVER (
-PARTITION BY partition_column ORDER BY sort_column
-) [AS <alias>]
-```
+![frame_clause](res/frame_clause.png)
 
-| 函数 | 描述 |
-|---|---|
-|row_number() -> bigint||
-|rank() -> bigint||
-|lag(\<value anycompatible\>[, offset integer[, default anycompatible]])|返回分区中在当前行之前offset行的value;如果没有这样的行，则返回default(必须与value相兼容的类型)  offset和default都是针对当前行求值的。如果省略，offset默认为1，default为NULL|
-|lead()||
-|first_value (\<value anyelement\>) → \<anyelement\>|返回在窗口框架的第一行求得的value|
-|last_value (\<value anyelement\>) → \<anyelement\>|返回在窗口框架的最后一行求得的value|
-|nth_value (\<value anyelement\>, \<n integer>\) → \<anyelement\>|返回在窗口框架的第n行求得的value(从1开始计数);如果没有这样的行，则返回NULL|
+#### 排名窗口函数
+
+用于对数据进行分组排名，不支持动态的窗口大小（frame_clause），而是以当前分区作为分析的窗口
+
+- `ROW_NUMBER()`，为分区中的每行数据分配一个序列号，序列号从1开始分配
+- `RANK()`，计算每行数据在其分区中的名次；如果存在名次相同的数据，后续的排名将会产生跳跃
+- `DENSE_RANK()`，计算每行数据在其分区中的名次；即使存在名次相同的数据，后续的排名也是连续的值
+- `PERCENT_RANK()`，以百分比的形式显示每行数据在其分区中的名次: (rank - 1) / (总的分区行数 - 1)
+- `CUME_DIST()`，计算每行数据在其分区内的累积分布: (当前行之前或对等的分区行数)/(总的分区行数)；取值范围大于0并且小于等于1
+- `NTILE(n integer)`，将分区内的数据分为n等份，为每行数据计算其所在的位置
+
+#### 取值窗口函数
+
+用于返回指定位置上的数据，LAG()和LEAD()不支持动态的窗口大小（frame_clause），而是以当前分区作为分析的窗口
+
+- `FIRST_VALUE(val anyelement)`，返回窗口内第一行的数据
+- `LAST_VALUE(val anyelement)`，返回窗口内最后一行的数据
+- `NTH_VALUE(val anyelement, n integer)`，返回窗口内第n行的数据
+- `LAG(val anycompatible, offset integer = 1, default anycompatible = NULL)`，返回分区中当前行之前的第 N 行的数据
+- `LEAD(val anycompatible, offset integer = 1, default anycompatible = NULL)`，返回分区中当前行之后第 N 行的数据
+
+> SQL 标准为lead、lag、first_value、last_value和nth_value定义了一个`RESPECT NULLS`或`IGNORE NULLS`选项。这在PostgreSQL中没有实现：行为总是与标准的默认相同，即`RESPECT NULLS`  
+> 同样，标准中用于nth_value的`FROM FIRST`或`FROM LAST`选项没有实现：只有支持默认的`FROM FIRST`行为（你可以通过反转ORDER BY的排序达到`FROM LAST`的结果）
 
 ### 数学函数
 
@@ -2626,7 +2717,7 @@ ASSERT <condition> [, <message>];
 在由`CALL`调用的过程中以及匿名代码块`DO`中，可以用命令`COMMIT`和`ROLLBACK`结束事务。在一个事务被使用这些命令结束后，一个新的事务会被自动开始，因此没有单独的`START TRANSACTION`命令
 
 - 新事务开始时具有默认事务特征，如事务隔离级别
-- 从顶层调用的`CALL`或`DO`中和在没有任何其他中间命令的嵌套`CALL`或`DO`调用中也能进行事务控制。
+- 从顶层调用的`CALL`或`DO`中和在没有任何其他中间命令的嵌套`CALL`或`DO`调用中也能进行事务控制
 
 ```sql
 CREATE PROCEDURE transaction_test()
