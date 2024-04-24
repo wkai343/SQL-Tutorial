@@ -87,6 +87,10 @@ WantedBy=multi-user.target
 \df (函数)
 
 \dfn(normal) \dfa(aggregates) \dfw(windows functions) \dft(trigger)
+
+\db (表空间)
+
+\dx (扩展)
 ```
 
 查看sql命令
@@ -767,10 +771,45 @@ PostgreSQL类型系统包含了一些特殊目的的项，它们被统称为伪�
 
 操作对象:
 
+- [数据库](#数据库)
 - [模式](#模式)
 - [表](#表)
 - [视图](#视图)
 - [索引](#索引)
+
+### 数据库
+
+#### 查看数据库
+
+```sql
+SELECT datname FROM pg_database;
+```
+
+#### 创建数据库
+
+```sql
+CREATE DATABASE <数据库名>;
+```
+
+#### 删除数据库
+
+```sql
+DROP DATABASE [IF EXISTS] <数据库名>;
+```
+
+#### 修改数据库
+
+重命名数据库
+
+```sql
+ALTER DATABASE <数据库名> RENAME TO <新数据库名>;
+```
+
+修改拥有者
+
+```sql
+ALTER DATABASE <数据库名> OWNER TO <新拥有者>;
+```
 
 ### 模式
 
@@ -782,6 +821,12 @@ PostgreSQL类型系统包含了一些特殊目的的项，它们被统称为伪�
 - 将数据库对象组织成逻辑组以便更容易管理
 - 第三方应用的对象可以放在独立的模式中，这样它们就不会与其他对象的名称发生冲突
 
+#### 查看模式
+
+```sql
+SELECT schema_name FROM information_schema.schemata;
+```
+
 #### 创建/删除模式
 
 ```sql
@@ -790,6 +835,20 @@ CREATE SCHEMA <模式名>;
 CREATE SCHEMA [模式名] AUTHORIZATION <用户名>; -- 模式名默认是用户名
 
 DROP SCHEMA [模式名] [, 模式名]... [CASCADE | RESTRICT];
+```
+
+#### 修改模式
+
+重命名模式
+
+```sql
+ALTER SCHEMA <模式名> RENAME TO <新模式名>;
+```
+
+修改拥有者
+
+```sql
+ALTER SCHEMA <模式名> OWNER TO <新拥有者>;
 ```
 
 #### 使用对象
@@ -1178,7 +1237,15 @@ DROP VIEW <视图名> [, <视图名>] [CASCADE | RESTRICT];
 ```sql
 CREATE INDEX <索引名> ON <表名> (<列名>);
 
-DROP INDEX <索引名>;
+DROP INDEX <索引名> [CASCADE | RESTRICT];
+```
+
+#### 修改索引
+
+- 重命名索引
+
+```sql
+ALTER INDEX <旧索引名> RENAME TO <新索引名>;
 ```
 
 #### 索引类型
@@ -1274,6 +1341,79 @@ CREATE UNIQUE INDEX idx_t_ab ON t USING btree (a, b) INCLUDE (c);
 ```
 
 > 包括include, 多列索引最多可以包含32个字段
+
+### 表空间
+
+PostgreSQL中的表空间允许数据库管理员在文件系统中定义用来存放表示数据库对象的文件的位置。一旦被创建，表空间就可以在创建数据库对象时通过名称引用
+
+作用: 空间和性能
+
+当初始化数据库集簇时，会自动创建两个表空间。pg_global表空间被用于共享系统目录。pg_default表空间是template1和template0数据库的默认表空间（并且，因此也将是所有其他数据库的默认表空间）
+
+#### 查看表空间
+
+```sql
+SELECT spcname FROM pg_tablespace;
+```
+
+#### 创建表空间
+
+表空间的创建本身必须作为一个数据库超级用户完成，但在创建完之后之后你可以允许普通数据库用户来使用它。要这样做，给数据库普通用户授予表空间上的`CREATE`权限
+
+```sql
+CREATE TABLESPACE <表空间名> [OWNER <拥有者>] LOCATION '<路径>';
+```
+
+#### 删除表空间
+
+只有表空间的拥有者或超级用户能够删除表空间。删除表空间之前需要确保其中不存在任何数据库对象，否则无法删除
+
+```sql
+DROP TABLESPACE [IF EXISTS] <表空间名>;
+```
+
+#### 修改表空间
+
+- 重命名表空间
+
+```sql
+ALTER TABLESPACE <表空间名> RENAME TO <新表空间名>;
+```
+
+- 修改表空间拥有者
+
+```sql
+ALTER TABLESPACE <表空间名> OWNER TO <新拥有者>;
+```
+
+#### 使用表空间
+
+PostgreSQL支持在`CREATE DATABASE`、`CREATE TABLE`、`CREATE INDEX`以及`ADD CONSTRAINT`语句中指定`TABLESPACE`选项，覆盖默认的表空间
+
+- 创建对象时指定表空间
+
+```sql
+CREATE <对象> <表名> (...) TABLESPACE <表空间名>;
+```
+
+- 修改对象表空间
+
+```sql
+ALTER <对象> <表名> SET TABLESPACE <表空间名>;
+```
+
+- 设置默认表空间
+
+```sql
+SET default_tablespace = <表空间名>;
+```
+
+#### 修改表空间路径
+
+1. 停止postgresql服务
+2. 移动表空间到新路径
+3. 修改符号链接，指向新路径
+4. 启动postgresql服务
 
 ## 数据操纵
 
@@ -1549,6 +1689,67 @@ INSERT INTO products_log
 SELECT * FROM moved_rows;
 ```
 
+## 角色
+
+### 查看角色
+
+```sql
+SELECT rolname FROM pg_roles;
+```
+
+### 创建角色
+
+```sql
+CREATE ROLE <角色名>;
+```
+
+### 角色属性
+
+- **登录特权**，只有具有`LOGIN`属性的角色才能连接数据库。
+
+  ```sql
+  CREATE ROLE <name> LOGIN;
+  CREATE USER <name>;
+  ```
+
+- **超级用户**，数据的超级用户可以避开所有的权限检查，只验证登录权限。
+
+  ```sql
+  CREATE ROLE <name> SUPERUSER;
+  ```
+
+- **创建数据库**，只有明确授权的角色才能够创建数据库
+
+  ```sql
+  CREATE ROLE <name> CREATEDB;
+  ```
+
+- **创建角色**，只有明确授权的角色才能够创建其他角色
+
+  ```sql
+  CREATE ROLE <name> CREATEROLE;
+  ```
+
+- **流复制**，只有明确授权的角色才能够启动流复制，用于流复制的角色还需要拥有`LOGIN`特权
+
+  ```sql
+  CREATE ROLE <name> REPLICATION LOGIN;
+  ```
+
+- **密码**，只有当用户连接数据库使用的客户端认证方法要求提供密码时，密码属性才有意义。password和md5认证方法需要使用密码
+
+  ```sql
+  CREATE ROLE <name> PASSWORD '<密码>';
+  ```
+
+#### 修改属性
+
+例子:
+
+```sql
+ALTER ROLE admin NOCREATEROLE;
+```
+
 ## 权限
 
 有效的权限：
@@ -1580,44 +1781,37 @@ FROM <角色>[, ...]
 [CASCADE | RESTRICT];
 ```
 
-### 角色属性
+### 删除角色
 
-- login privilege
+移除曾经拥有过对象的角色
 
-  ```sql
-  CREATE ROLE <name> LOGIN;
-  CREATE USER <name>;
-  ```
+```sql
+REASSIGN OWNED BY <角色> TO <新角色>; -- 把要被删除的角色所拥有所有对象的拥有关系转移给另一个角色
+DROP OWNED BY <角色>; -- 移除不属于目标角色的对象授予给目标角色的任何特权
+DROP ROLE <角色>;
+```
 
-- superuser status
+### 组
 
-  ```sql
-  CREATE ROLE <name> SUPERUSER;
-  ```
+为了便于权限管理，减少复杂度，可以将用户进行分组，然后以组为单位进行权限的授予和撤销操作
 
-- database creation
+使用与对象授权操作相同的`GRANT`和`REVOKE`语句为组添加和删除成员：
 
-  ```sql
-  CREATE ROLE <name> CREATEDB;
-  ```
+```sql
+GRANT <group_name> TO <user_role>, ... ;
+REVOKE <group_name> FROM <user_role>, ... ;
+```
 
-- role creation
+组角色的成员有两种方式使用角色的权限
 
-  ```sql
-  CREATE ROLE <name> CREATEROLE;
-  ```
-
-- initiating replication
-
-  ```sql
-  CREATE ROLE <name> REPLICATION LOGIN;
-  ```
-
-- password
-
-  ```sql
-  CREATE ROLE <name> PASSWORD '<密码>';
-  ```
+  1. 一个组的每一个成员可以显式地做`SET ROLE`来临时“成为”组角色。在这种状态中，数据库会话可以访问组角色而不是原始登录角色的权限，并且任何被创建的数据库对象被认为属于组角色而不是登录角色
+    恢复原始登录角色的权限：`SET ROLE <原始>`或`SET ROLE NONE`或`RESET ROLE`
+  2. 第二，有`INHERIT`属性的成员角色自动地具有它们所属角色的权限，包括任何组角色继承得到的权限，但不包含角色属性
+    ```sql
+    CREATE ROLE joe LOGIN INHERIT;
+    ```
+  
+> 在 SQL 标准中，用户和角色之间的区别很清楚，并且用户不会自动继承权限而角色会继承。这种行为在PostgreSQL中也可以实现：为要用作SQL角色的角色给予`INHERIT`属性，而为要用作SQL用户的角色给予`NOINHERIT`属性。不过，为了向后兼容8.1以前的发布（在其中用户总是拥有它们所在组的权限），PostgreSQL默认给所有的角色`INHERIT`属性
 
 ## 事务控制语句
 
@@ -2529,8 +2723,8 @@ todo
 
 `RETURN`
 
-- 带有一个表达式的RETURN用于终止函数并把expression的值返回给调用者
-- 如果你声明函数返回void，一个RETURN语句可以被用来提前退出函数；但是不要在RETURN后面写一个表达式
+- 带有一个表达式的`RETURN`用于终止函数并把expression的值返回给调用者
+- 如果你声明函数返回void，一个`RETURN`语句可以被用来提前退出函数；但是不要在`RETURN`后面写一个表达式
 
 `RETURN NEXT`以及`RETURN QUERY`
 
@@ -2736,6 +2930,10 @@ END;
 $$;
 CALL transaction_test();
 ```
+
+### PL/Python
+
+todo
 
 ## 触发器
 
