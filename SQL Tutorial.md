@@ -2914,7 +2914,7 @@ OPEN <cursor> FOR SELECT * FROM mytable WHERE key = keyval;
 FETCH [<direction> FROM] <cursor> INTO <target> [,...];
 ```
 
-`FETCH`命令从一个打开的游标中读取一行数据，并把它的列值赋给一个或多个变量。direction子句可以是SQL `FETCH`命令中允许的任何变体，除了那些能够取得多于一行的。即它可以是`NEXT`、`PRIOR`、`FIRST`、`LAST`、`ABSOLUTE count`、`RELATIVE count`、`FORWARD`或者`BACKWARD`。省略direction和指定`NEXT`是一样的。在使用count的形式中，count可以是任意的整数值表达式（与SQL命令`FETCH`不一样，`FETCH`仅允许整数常量）。除非游标被使用`SCROLL`选项声明或打开，否则要求反向移动的direction值很可能会失败。
+`FETCH`命令从一个打开的游标中读取一行数据，并把它的列值赋给一个或多个变量。direction子句可以是SQL `FETCH`命令中允许的任何变体，除了那些能够取得多于一行的。即它可以是`NEXT`、`PRIOR`、`FIRST`、`LAST`、`ABSOLUTE <count>`、`RELATIVE <count>`、`FORWARD`或者`BACKWARD`。省略direction和指定`NEXT`是一样的。在使用count的形式中，count可以是任意的整数值表达式（与SQL命令`FETCH`不一样，`FETCH`仅允许整数常量）。除非游标被使用`SCROLL`选项声明或打开，否则要求反向移动的direction值很可能会失败。
 
 > `IN`和`FROM`是等价的，它们只是为了语法的可读性而存在
 
@@ -2946,8 +2946,7 @@ FOR <recordvar> IN <bound_cursorvar>[(parameters)] LOOP
 END LOOP [label];
 ```
 
-该游标变量必须在声明时已经被绑定到某个查询，并且它不能已经被打开。FOR语句会自动打开游标，并且在退出循环时自动关闭游标。变量recordvar会被自动定义为record类型，并且只存在于循环内部（循环中该变量名任何
-已有定义都会被忽略）
+该游标变量必须在声明时已经被绑定到某个查询，并且它不能已经被打开。FOR语句会自动打开游标，并且在退出循环时自动关闭游标。变量recordvar会被自动定义为record类型，并且只存在于循环内部（循环中该变量名任何已有定义都会被忽略）
 
 ```sql
 DO LANGUAGE plpgsql $$
@@ -2959,6 +2958,7 @@ BEGIN
         RAISE NOTICE '%', t;
     END LOOP;
 END$$;
+```
 
 ##### 异常
 
