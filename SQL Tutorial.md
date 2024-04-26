@@ -893,6 +893,16 @@ CREATE TABLE <表名> (
 DROP TABLE <表名> [, <表名>] [RESTRICT | CASCADE];
 ```
 
+##### 从查询结果创建表
+
+```sql
+CREATE TABLE <表名> AS <查询>;
+```
+
+```sql
+SELECT INTO <表名> FROM <表名>;
+```
+
 #### 生成列
 
 - 生成列有两种:存储列`STORED`和虚拟列`VIRTUAL`(虚拟列未实现)
@@ -2705,7 +2715,7 @@ CALL sum_n_product(2, 4, NULL, NULL);
 ###### 赋值
 
 ```sql
-<variable> { := | = } <expression>;
+<variable> {:= | =} <expression>;
 ```
 
 类型转换
@@ -2866,6 +2876,89 @@ NOTICE: row = {4,5,6}
 NOTICE: row = {7,8,9}
 NOTICE: row = {10,11,12}
 ```
+
+##### 游标
+
+与其一次执行整个查询，不如设置一个封装查询的游标，然后一次读取几行查询结果。这样做的一个原因是避免在结果包含大量行时内存溢出。
+
+###### 声明游标
+
+```sql
+DECLARE
+<name> [[NO] SCROLL] CURSOR [(arguments)] FOR <query>;
+```
+
+如果指定了SCROLL，那么游标可以反向滚动；如果指定了`NO SCROLL`，那么反向取的动作会被拒绝；如果二者都没有被指定，那么能否进行反向取就取决于查询。
+
+> 为了对Oracle的兼容性，可以用`IS`替代`FOR`
+
+###### 打开游标
+
+```sql
+OPEN [[NO] SCROLL] <cursor> [(parameters)];
+```
+
+匿名游标
+
+```sql
+<cursor> refcursor;
+```
+
+```sql
+OPEN <cursor> FOR SELECT * FROM mytable WHERE key = keyval;
+```
+
+###### 读取游标
+
+```sql
+FETCH [<direction> FROM] <cursor> INTO <target> [,...];
+```
+
+`FETCH`命令从一个打开的游标中读取一行数据，并把它的列值赋给一个或多个变量。direction子句可以是SQL `FETCH`命令中允许的任何变体，除了那些能够取得多于一行的。即它可以是`NEXT`、`PRIOR`、`FIRST`、`LAST`、`ABSOLUTE count`、`RELATIVE count`、`FORWARD`或者`BACKWARD`。省略direction和指定`NEXT`是一样的。在使用count的形式中，count可以是任意的整数值表达式（与SQL命令`FETCH`不一样，`FETCH`仅允许整数常量）。除非游标被使用`SCROLL`选项声明或打开，否则要求反向移动的direction值很可能会失败。
+
+> `IN`和`FROM`是等价的，它们只是为了语法的可读性而存在
+
+###### 移动游标
+  
+```sql
+MOVE [<direction> FROM] <cursor>;
+```
+
+###### 修改游标数据
+
+```sql
+UPDATE <table> SET <column> = <expression> WHERE CURRENT OF <cursor>;
+DELETE FROM <table> WHERE CURRENT OF <cursor>;
+```
+
+###### 关闭游标
+
+```sql
+CLOSE <cursor>;
+```
+
+###### 通过游标循环
+
+```sql
+[label]
+FOR <recordvar> IN <bound_cursorvar>[(parameters)] LOOP
+  <statements>
+END LOOP [label];
+```
+
+该游标变量必须在声明时已经被绑定到某个查询，并且它不能已经被打开。FOR语句会自动打开游标，并且在退出循环时自动关闭游标。变量recordvar会被自动定义为record类型，并且只存在于循环内部（循环中该变量名任何
+已有定义都会被忽略）
+
+```sql
+DO LANGUAGE plpgsql $$
+DECLARE
+    c1 CURSOR FOR SELECT * FROM b;
+ROW record;
+BEGIN
+    FOR t IN c1 LOOP
+        RAISE NOTICE '%', t;
+    END LOOP;
+END$$;
 
 ##### 异常
 
