@@ -881,6 +881,13 @@ SET search_path TO myschema, public;
 
 ### 表
 
+#### 查看表
+
+```sql
+SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';
+SELECT * FROM pg_tables WHERE schemaname = 'public';
+```
+
 #### 创建/删除表
 
 ```sql
@@ -2888,7 +2895,7 @@ DECLARE
 <name> [[NO] SCROLL] CURSOR [(arguments)] FOR <query>;
 ```
 
-如果指定了SCROLL，那么游标可以反向滚动；如果指定了`NO SCROLL`，那么反向取的动作会被拒绝；如果二者都没有被指定，那么能否进行反向取就取决于查询。
+如果指定了`SCROLL`，那么游标可以反向滚动；如果指定了`NO SCROLL`，那么反向取的动作会被拒绝；如果二者都没有被指定，那么能否进行反向取就取决于查询。
 
 > 为了对Oracle的兼容性，可以用`IS`替代`FOR`
 
@@ -2946,7 +2953,7 @@ FOR <recordvar> IN <bound_cursorvar>[(parameters)] LOOP
 END LOOP [label];
 ```
 
-该游标变量必须在声明时已经被绑定到某个查询，并且它不能已经被打开。FOR语句会自动打开游标，并且在退出循环时自动关闭游标。变量recordvar会被自动定义为record类型，并且只存在于循环内部（循环中该变量名任何已有定义都会被忽略）
+该游标变量必须在声明时已经被绑定到某个查询，并且它不能已经被打开。`FOR`语句会自动打开游标，并且在退出循环时自动关闭游标。变量recordvar会被自动定义为`record`类型，并且只存在于循环内部（循环中该变量名任何已有定义都会被忽略）
 
 ```sql
 DO LANGUAGE plpgsql $$
