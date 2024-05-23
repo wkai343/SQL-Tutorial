@@ -146,24 +146,43 @@ WantedBy=multi-user.target
 
 ##### 字符串常量
 
-- 一个字符串常量是一个由单引号（'）包围的任意字符序列
+- 一个字符串常量是一个由单引号`'`包围的任意字符序列
 - 两个只由空白及至少一个新行分隔的字符串常量会被连接在一起，并且将作为一个写在一起的字符串常量来对待
+
+  ```sql
+  select 'hello' 
+  'world';
+  ````
+
 - 一个转义字符串常量可以通过在开单引号前面写一个字母E（大写或小写形式）来指定
-- PostgreSQL提供了另一种被称为“美元引用”的方式来书写字符串常量
+
+  ```sql
+  select E'hello\n';
+  ```
 
 ###### 美元引用的字符串常量
+
+PostgreSQL提供了另一种被称为“美元引用”的方式来书写字符串常量
 
 一个美元引用的字符串常量由一个美元符号($)、一个可选的另个或更多字符的“标签”、另一个美元符号、一个构成字符串内容的任意字符序列、一个美元符号、开始这个美元引用的相同标签和一个美元符号组成。
 
 ```sql
-$$Dianne's horse$$
-$SomeTag$Dianne's horse$SomeTag$
+SELECT $mytag$This is a string.$mytag$;
 ```
 
 ##### 位串常量
 
 - 二进制使用一个前导B（大写或小写形式）
+
+  ```sql
+  B'1001'
+  ```
+
 - 十六进制使用一个前导X（大写或小写形式）
+
+  ```sql
+  X'FF'
+  ```
 
 ##### 数字常量
 
@@ -176,13 +195,13 @@ digitse[+-]digits
 
 - 如果一个不包含小数点和指数的数字常量的值适合类型integer（32 位），它首先被假定为类型integer。否则如果它的值适合类型bigint（64 位），它被假定为类型bigint。再否则它会被取做类型numeric。包含小数点和/或指数的常量总是首先被假定为类型numeric
 
-##### 其他类型的常量
+##### 字符串类型转换
 
 ```sql
-type 'string'
-'string'::type
-CAST ('string' AS type)
-typename ('string')
+<type> 'string'
+'string'::<type>
+CAST ('string' AS <type>)
+<type> ('string')
 ```
 
 - type 'string'语法上的另一个限制是它无法对数组类型工作，指定一个数组常量的类型可使用::或CAST()
@@ -361,20 +380,19 @@ NULL::<boolean> IS NOT UNKNOWN → f (而不是 NULL)
 
 | 操作符/元素 | 结合性 | 描述 |
 |---|---|---|
-| . | 左 | 表/列名分隔符 |
-| :: | 左 | PostgreSQL-风格的类型转换 |
-| [ ] | 左 | 数组元素选择 |
-| + - | 右 | 一元加、一元减 |
-| ^ | 左 | 指数 |
-| * / % | 左 | 乘、除、模 |
-| + - | 左 | 加、减 |
+| `.` | 左 | 表/列名分隔符 |
+| `::` | 左 | PostgreSQL-风格的类型转换 |
+| `[]` | 左 | 数组元素选择 |
+| `+` `-` | 右 | 一元加、一元减 |
+| `^` | 左 | 指数 |
+| `*` `/` `%` | 左 | 乘、除、模 |
+| `+` `-` | 左 | 加、减 |
 | （任意其他操作符）| 左 | 所有其他本地以及用户定义的操作符 |
-| BETWEEN IN LIKE ILIKE SIMILAR|| 范围包含、集合成员关系、字符串匹配 |
-| \< \> = \<= \>= \<\> || 比较操作符 |
-| IS ISNULL NOTNULL || IS TRUE、IS FALSE、IS NULL、IS DISTINCT FROM等 |
-| NOT | 右 | 逻辑否定 |
-| AND | 左 | 逻辑合取 |
-| OR | 左 | 逻辑析取 |
+| `BETWEEN` `IN` `LIKE` `ILIKE` `SIMILAR`|| 范围包含、集合成员关系、字符串匹配 |
+| `<` `>` `=` `<=` `>=` `<>` || 比较操作符 |
+| `NOT` | 右 | 逻辑否定 |
+| `AND` | 左 | 逻辑合取 |
+| `OR` | 左 | 逻辑析取 |
 
 #### 特殊字符
 
@@ -460,8 +478,8 @@ Infinity(inf)
 NaN
 ```
 
-> 在SQL命令中将这些值作为常量写入时，必须在其周围加引号
-> 无穷大只能存储在无约束的numeric中，因为它名义上超过了任何有限精度限制
+> 在SQL命令中将这些值作为常量写入时，必须在其周围加引号  
+> 无穷大只能存储在无约束的numeric中，因为它名义上超过了任何有限精度限制  
 > 类型decimal和numeric是等效的。两种类型都是SQL标准的一部分
 
 ##### 浮点数
@@ -502,8 +520,8 @@ ALTER SEQUENCE tablename_colname_seq OWNED BY tablename.colname;
 |character(n), char(n)|定长，空格填充|
 |text|无限变长|
 
-> 没有长度声明词的character等效于character(1)
-> 如果不带长度说明词使用character varying，那么该类型接受任何长度的串。这是一个PostgreSQL的扩展
+> 没有长度声明词的character等效于character(1)  
+> 如果不带长度说明词使用character varying，那么该类型接受任何长度的串。这是一个PostgreSQL的扩展  
 > PostgreSQL提供text类型，它可以存储任何长度的串。尽管类型text不是SQL标准，但是许多其它 SQL 数据库系统也有它
 
 #### 字节类型
@@ -512,9 +530,7 @@ ALTER SEQUENCE tablename_colname_seq OWNED BY tablename.colname;
 |---|---|---|
 | bytea | 1或4字节外加真正的二进制串 | 变长二进制串 |
 
-- 十六进制格式
-
-整个串以序列\x开头
+二进制串是一个八位位组（或字节）的序列。bytea类型支持两种用于输入和输出的格式：“十六进制”格式和PostgreSQL的历史的“转义”格式
 
 #### 位串类型
 
@@ -943,7 +959,17 @@ CREATE TABLE people (
 
 #### 默认值
 
-- 默认值可以是一个表达式，它将在任何需要插入默认值的时候被实时计算（不是表创建时）
+在一个表定义中，默认值被列在列的数据类型之后
+
+```sql
+CREATE TABLE products (
+  product_no integer,
+  name text,
+  price numeric DEFAULT 9.99
+);
+```
+
+> 默认值可以是一个表达式，它将在任何需要插入默认值的时候被实时计算（不是表创建时）
 
 #### 约束
 
@@ -1025,9 +1051,9 @@ CREATE TABLE t1 (
 
 > 限制删除或者级联删除是两种最常见的选项。`RESTRICT`阻止删除一个被引用的行。`NO ACTION`表示在约束被检查时如果有任何引用行存在，则会抛出一个错误，这是我们没有指定任何东西时的默认行为（这两种选择的本质不同在于`NO ACTION`允许检查被推迟到事务的最后，而`RESTRICT`则不会）。`CASCADE`指定当一个被引用行被删除后，引用它的行也应该被自动删除。还有其他两种选项：`SET NULL`和`SET DEFAULT`。这些将导致在被引用行被删除后，引用行中的引用列被置为空值或它们的默认值。注意这些并不会是我们免于遵守任何约束。例如，如果一个动作指定了`SET DEFAULT`，但是默认值不满足外键约束，操作将会失败。与`ON DELETE`相似，同样有`ON UPDATE`可以用在一个被引用列被修改（更新）的情况，可选的动作相同。在这种情况下，`CASCADE`意味着被引用列的更新值应该被复制到引用行中。
 
-##### 排他约束
+##### 排除约束
 
-- 排他约束保证如果将任何两行的指定列或表达式使用指定操作符进行比较，至少其中一个操作符比较将会返回否或空值
+排除约束保证如果将任何两行的指定列或表达式使用指定操作符进行比较，至少其中一个操作符比较将会返回否或空值
 
 ```sql
 CREATE TABLE example (
@@ -1035,13 +1061,14 @@ CREATE TABLE example (
 );
 ```
 
-例子
+> 例子
 
 ```sql
-CREATE TABLE example (
-    a integer,
-    b integer,
-    EXCLUDE USING gist (a WITH =, b WITH <>)
+CREATE TABLE appointments (
+    id SERIAL PRIMARY KEY,
+    start_time TIMESTAMP,
+    end_time TIMESTAMP,
+    EXCLUDE USING gist (tsrange(start_time, end_time) WITH &&)
 );
 ```
 
@@ -1076,13 +1103,13 @@ ALTER TABLE <表名> DROP [COLUMN] <列名> [RESTRICT | CASCADE];
 ALTER TABLE <表名> ADD [CONSTRAINT <约束名>] <表级约束>;
 ```
 
-要增加一个不能写成表约束的非空约束，可使用语法:
+增加一个不能写成表约束的非空约束:
 
 ```sql
-ALTER TABLE <表名> ALTER COLUMN <列名> SET NOT NULL;
+ALTER TABLE <表名> ALTER [COLUMN] <列名> SET NOT NULL;
 ```
 
-该约束会立即被检查，所以表中的数据必须在约束被增加之前就已经符合约束。
+> 该约束会立即被检查，所以表中的数据必须在约束被增加之前就已经符合约束
 
 ##### 移除约束
 
@@ -1093,14 +1120,14 @@ ALTER TABLE <表名> DROP CONSTRAINT <约束名> [RESTRICT | CASCADE];
 移除非空约束:
 
 ```sql
-ALTER TABLE <表名> ALTER COLUMN <列名> DROP NOT NULL;
+ALTER TABLE <表名> ALTER [COLUMN] <列名> DROP NOT NULL;
 ```
 
 ##### 修改列的默认值
 
 ```sql
-ALTER TABLE <表名> ALTER COLUMN <列名> SET DEFAULT <默认值>;
-ALTER TABLE <表名> ALTER COLUMN <列名> DROP DEFAULT;
+ALTER TABLE <表名> ALTER [COLUMN] <列名> SET DEFAULT <默认值>;
+ALTER TABLE <表名> ALTER [COLUMN] <列名> DROP DEFAULT;
 ```
 
 ##### 修改列的数据类型
@@ -1149,7 +1176,8 @@ SELECT <查询内容> FROM ONLY <基表>
 
 - 减少扫描量，提高查询性能
 - 便于数据迁移
-- pgsql内建支持：范围分区、列表分区、哈希分区
+
+pgsql内建支持：**范围**分区、**列表**分区、**哈希**分区
 
 ##### 分区表和分区
 
@@ -1761,7 +1789,7 @@ CREATE ROLE <角色名>;
 
 #### 修改属性
 
-例子:
+> 例子
 
 ```sql
 ALTER ROLE admin NOCREATEROLE;
@@ -1822,12 +1850,14 @@ REVOKE <group_name> FROM <user_role>, ... ;
 组角色的成员有两种方式使用角色的权限
 
   1. 一个组的每一个成员可以显式地做`SET ROLE`来临时“成为”组角色。在这种状态中，数据库会话可以访问组角色而不是原始登录角色的权限，并且任何被创建的数据库对象被认为属于组角色而不是登录角色
-    恢复原始登录角色的权限：`SET ROLE <原始>`或`SET ROLE NONE`或`RESET ROLE`
+  恢复原始登录角色的权限：`SET ROLE <原始>`或`SET ROLE NONE`或`RESET ROLE`
+
   2. 第二，有`INHERIT`属性的成员角色自动地具有它们所属角色的权限，包括任何组角色继承得到的权限，但不包含角色属性
-    ```sql
-    CREATE ROLE joe LOGIN INHERIT;
-    ```
-  
+
+  ```sql
+  CREATE ROLE joe LOGIN INHERIT;
+  ```
+
 > 在 SQL 标准中，用户和角色之间的区别很清楚，并且用户不会自动继承权限而角色会继承。这种行为在PostgreSQL中也可以实现：为要用作SQL角色的角色给予`INHERIT`属性，而为要用作SQL用户的角色给予`NOINHERIT`属性。不过，为了向后兼容8.1以前的发布（在其中用户总是拥有它们所在组的权限），PostgreSQL默认给所有的角色`INHERIT`属性
 
 ## 事务控制语句
@@ -1981,7 +2011,7 @@ LEAST(<value>[, ...])
 EXISTS (<subquery>)
 ```
 
-例子
+> 例子
 
 ```sql
 SELECT * FROM films WHERE EXISTS (SELECT 1 FROM distributors WHERE distributors.id = films.did);
@@ -1994,13 +2024,11 @@ SELECT * FROM films WHERE EXISTS (SELECT 1 FROM distributors WHERE distributors.
 <expression> NOT IN (<subquery>)
 ```
 
-> 如果左边表达式得到NULL或者没有相等的右边值，并且至少有一个右边行得到NULL，那么IN结构的结果将是NULL
-
-例子
-
 ```sql
 SELECT * FROM films WHERE films.did IN (SELECT id FROM distributors WHERE name = 'Fox');
 ```
+
+> 如果左边表达式得到NULL或者没有相等的右边值，并且至少有一个右边行得到NULL，那么IN结构的结果将是NULL
 
 #### ANY
 
@@ -2068,8 +2096,6 @@ AND
 
 > 如果数组表达式得到一个空数组，`ANY`的结果将为NULL。如果左边的表达式得到NULL，`ANY`通常是NULL（尽管一个非严格比较操作符可能得到一个不同的结果）。另外，如果右边的数组包含任何NULL元素或者没有得到真值比较结果，`ANY`的结果将是NULL
 
-例子
-
 ```sql
 SELECT * FROM films WHERE length < ANY (ARRAY[88, 100, 120]);
 ```
@@ -2128,7 +2154,7 @@ SELECT * FROM films WHERE length < ANY (ARRAY[88, 100, 120]);
 substring(<string> from <pattern>)
 ```
 
-例子
+> 例子
 
 ```sql
 SELECT substring('foobar' from 'o.b') -- oob
@@ -2153,7 +2179,7 @@ regexp_replace(<source>, <pattern>, <replacement>[, <flags>])
 regexp_match(<string>, <pattern> [, <flags>])
 ```
 
-例子
+> 例子
 
 ```sql
 SELECT regexp_match('foobarbequebaz', 'b.*?q') -- {barbeq}
@@ -2199,12 +2225,12 @@ SELECT avg(salary) FILTER (WHERE salary > 100000) FROM employees;
 ```sql
 <window_function>(<parameter list>) OVER (
   [PARTITION BY <expression> [, ...]] -- 分区，类似于GROUP BY
-  [ORDER BY expression [ASC | DESC | USING operator] [NULLS { FIRST | LAST }] [, ...] -- 排序
+  [ORDER BY <expression> [ASC | DESC | USING <operator>] [NULLS { FIRST | LAST }] [, ...] -- 排序
   [frame_clause] -- 窗口大小
 )
 ```
 
-frame_clause
+> frame_clause
 
 该frame_clause指定构成窗口框架（当前分区的子集）的行集，用于作用于框架而不是整个分区的窗口函数
 
@@ -2926,7 +2952,7 @@ FETCH [<direction> FROM] <cursor> INTO <target> [,...];
 > `IN`和`FROM`是等价的，它们只是为了语法的可读性而存在
 
 ###### 移动游标
-  
+
 ```sql
 MOVE [<direction> FROM] <cursor>;
 ```
